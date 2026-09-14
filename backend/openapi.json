@@ -6,6 +6,247 @@ info:
     are integer pesewas (`*_pesewas`). Every POST requires an `Idempotency-Key` (UUIDv7).
     Gross sales figures are 'Money taken' — gross cash through the till, not revenue.
 paths:
+  /api/v1/auth/authorise:
+    post:
+      operationId: auth_authorise_create
+      description: POST /auth/authorise — manager/owner PIN → single-use authorisation
+        token.
+      tags:
+      - auth
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: No response body
+      parameters:
+      - name: Idempotency-Key
+        in: header
+        required: true
+        description: 'Client-generated UUIDv7, unique per command. Replays return
+          the original response with `Idempotent-Replayed: true`.'
+        schema:
+          type: string
+          format: uuid
+      - name: X-Client-Time
+        in: header
+        required: false
+        description: The device's clock at send time (ISO 8601). Stored for audit;
+          never used for ordering.
+        schema:
+          type: string
+          format: date-time
+      - name: X-Device-Token
+        in: header
+        required: false
+        description: Enrolled device token. Required for every staff request.
+        schema:
+          type: string
+  /api/v1/auth/logout:
+    post:
+      operationId: auth_logout_create
+      description: POST /auth/logout — revoke staff jti and/or end owner session.
+      tags:
+      - auth
+      security:
+      - bearerAuth: []
+      - {}
+      responses:
+        '200':
+          description: No response body
+      parameters:
+      - name: Idempotency-Key
+        in: header
+        required: true
+        description: 'Client-generated UUIDv7, unique per command. Replays return
+          the original response with `Idempotent-Replayed: true`.'
+        schema:
+          type: string
+          format: uuid
+      - name: X-Client-Time
+        in: header
+        required: false
+        description: The device's clock at send time (ISO 8601). Stored for audit;
+          never used for ordering.
+        schema:
+          type: string
+          format: date-time
+      - name: X-Device-Token
+        in: header
+        required: false
+        description: Enrolled device token. Required for every staff request.
+        schema:
+          type: string
+  /api/v1/auth/owner/login:
+    post:
+      operationId: auth_owner_login_create
+      description: POST /auth/owner/login — email + password; TOTP still required.
+      tags:
+      - auth
+      security:
+      - {}
+      responses:
+        '200':
+          description: No response body
+      parameters:
+      - name: Idempotency-Key
+        in: header
+        required: true
+        description: 'Client-generated UUIDv7, unique per command. Replays return
+          the original response with `Idempotent-Replayed: true`.'
+        schema:
+          type: string
+          format: uuid
+      - name: X-Client-Time
+        in: header
+        required: false
+        description: The device's clock at send time (ISO 8601). Stored for audit;
+          never used for ordering.
+        schema:
+          type: string
+          format: date-time
+      - name: X-Device-Token
+        in: header
+        required: false
+        description: Enrolled device token. Required for every staff request.
+        schema:
+          type: string
+  /api/v1/auth/owner/me:
+    get:
+      operationId: auth_owner_me_retrieve
+      description: GET /auth/owner/me — proves owner session + TOTP (middleware principal).
+      tags:
+      - auth
+      responses:
+        '200':
+          description: No response body
+      parameters:
+      - name: X-Device-Token
+        in: header
+        required: false
+        description: Enrolled device token. Required for every staff request.
+        schema:
+          type: string
+  /api/v1/auth/owner/totp:
+    post:
+      operationId: auth_owner_totp_create
+      description: POST /auth/owner/totp — verify TOTP and mark the session OTP-verified.
+      tags:
+      - auth
+      security:
+      - {}
+      responses:
+        '200':
+          description: No response body
+      parameters:
+      - name: Idempotency-Key
+        in: header
+        required: true
+        description: 'Client-generated UUIDv7, unique per command. Replays return
+          the original response with `Idempotent-Replayed: true`.'
+        schema:
+          type: string
+          format: uuid
+      - name: X-Client-Time
+        in: header
+        required: false
+        description: The device's clock at send time (ISO 8601). Stored for audit;
+          never used for ordering.
+        schema:
+          type: string
+          format: date-time
+      - name: X-Device-Token
+        in: header
+        required: false
+        description: Enrolled device token. Required for every staff request.
+        schema:
+          type: string
+  /api/v1/auth/pin:
+    post:
+      operationId: auth_pin_create
+      description: POST /auth/pin — device + staff PIN → staff JWT.
+      tags:
+      - auth
+      security:
+      - {}
+      responses:
+        '200':
+          description: No response body
+      parameters:
+      - name: Idempotency-Key
+        in: header
+        required: true
+        description: 'Client-generated UUIDv7, unique per command. Replays return
+          the original response with `Idempotent-Replayed: true`.'
+        schema:
+          type: string
+          format: uuid
+      - name: X-Client-Time
+        in: header
+        required: false
+        description: The device's clock at send time (ISO 8601). Stored for audit;
+          never used for ordering.
+        schema:
+          type: string
+          format: date-time
+      - name: X-Device-Token
+        in: header
+        required: false
+        description: Enrolled device token. Required for every staff request.
+        schema:
+          type: string
+  /api/v1/devices/enrol:
+    post:
+      operationId: devices_enrol_create
+      description: POST /devices/enrol — exchange a one-time enrolment code for a
+        device token.
+      tags:
+      - devices
+      security:
+      - {}
+      responses:
+        '200':
+          description: No response body
+      parameters:
+      - name: Idempotency-Key
+        in: header
+        required: true
+        description: 'Client-generated UUIDv7, unique per command. Replays return
+          the original response with `Idempotent-Replayed: true`.'
+        schema:
+          type: string
+          format: uuid
+      - name: X-Client-Time
+        in: header
+        required: false
+        description: The device's clock at send time (ISO 8601). Stored for audit;
+          never used for ordering.
+        schema:
+          type: string
+          format: date-time
+      - name: X-Device-Token
+        in: header
+        required: false
+        description: Enrolled device token. Required for every staff request.
+        schema:
+          type: string
+  /api/v1/devices/me:
+    get:
+      operationId: devices_me_retrieve
+      description: GET /devices/me — device label, roles, staff list for the PIN pad.
+      tags:
+      - devices
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: No response body
+      parameters:
+      - name: X-Device-Token
+        in: header
+        required: false
+        description: Enrolled device token. Required for every staff request.
+        schema:
+          type: string
   /api/v1/events:
     get:
       operationId: events_retrieve
@@ -41,6 +282,98 @@ paths:
                 type: object
                 additionalProperties: {}
           description: ''
+  /api/v1/guest/sessions/{qr_token}:
+    post:
+      operationId: guest_sessions_create
+      description: POST /guest/sessions/{qr_token} — guest phone via table QR; table
+        must have an open session.
+      parameters:
+      - in: path
+        name: qr_token
+        schema:
+          type: string
+        required: true
+      - name: Idempotency-Key
+        in: header
+        required: true
+        description: 'Client-generated UUIDv7, unique per command. Replays return
+          the original response with `Idempotent-Replayed: true`.'
+        schema:
+          type: string
+          format: uuid
+      - name: X-Client-Time
+        in: header
+        required: false
+        description: The device's clock at send time (ISO 8601). Stored for audit;
+          never used for ordering.
+        schema:
+          type: string
+          format: date-time
+      tags:
+      - guest
+      security:
+      - {}
+      responses:
+        '200':
+          description: No response body
+  /api/v1/guest/sessions/{session_id}:
+    get:
+      operationId: guest_sessions_retrieve
+      description: GET /guest/sessions/{id} — guest may only read their own open session
+        (404 otherwise).
+      parameters:
+      - in: path
+        name: session_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      tags:
+      - guest
+      responses:
+        '200':
+          description: No response body
+  /api/v1/sessions/{session_id}/guest-token:
+    post:
+      operationId: sessions_guest_token_create
+      description: POST /sessions/{id}/guest-token — waiter hands the tablet to the
+        guest.
+      parameters:
+      - in: path
+        name: session_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - name: Idempotency-Key
+        in: header
+        required: true
+        description: 'Client-generated UUIDv7, unique per command. Replays return
+          the original response with `Idempotent-Replayed: true`.'
+        schema:
+          type: string
+          format: uuid
+      - name: X-Client-Time
+        in: header
+        required: false
+        description: The device's clock at send time (ISO 8601). Stored for audit;
+          never used for ordering.
+        schema:
+          type: string
+          format: date-time
+      - name: X-Device-Token
+        in: header
+        required: false
+        description: Enrolled device token. Required for every staff request.
+        schema:
+          type: string
+      tags:
+      - sessions
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          description: No response body
 components:
   securitySchemes:
     bearerAuth:
