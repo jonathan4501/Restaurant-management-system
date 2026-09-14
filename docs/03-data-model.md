@@ -63,7 +63,7 @@ CREATE TABLE devices (
 );
 
 -- Every write carries a client-generated Idempotency-Key. The first request stores its response;
--- a replay returns it unchanged. See docs/07-backend-architecture.md §3.
+-- a replay returns it unchanged. See docs/08-backend-architecture.md §3.
 CREATE TABLE idempotency_keys (
     restaurant_id     UUID NOT NULL REFERENCES restaurants(id),
     key               UUID NOT NULL,
@@ -248,10 +248,13 @@ CREATE TABLE order_events (
     idempotency_key   UUID NOT NULL,
     client_created_at TIMESTAMPTZ NOT NULL,        -- what the device claimed
     created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),  -- what the server knows
-    CONSTRAINT uniq_seq  UNIQUE (restaurant_id, seq),
-    CONSTRAINT uniq_idem UNIQUE (restaurant_id, idempotency_key)
+    CONSTRAINT uniq_seq  UNIQUE (restaurant_id, seq)
 );
 
+-- One command may append several events under one Idempotency-Key (settlement emits SESSION_SETTLED
+-- plus one ORDER_CLOSED per order). Key uniqueness is enforced by idempotency_keys; this index only
+-- answers "which events did request X produce".
+CREATE INDEX ON order_events (restaurant_id, idempotency_key);
 CREATE INDEX ON order_events (restaurant_id, order_id, seq) WHERE order_id IS NOT NULL;
 CREATE INDEX ON order_events (restaurant_id, aggregate_type, aggregate_id, seq);
 CREATE INDEX ON order_events (restaurant_id, created_at DESC);

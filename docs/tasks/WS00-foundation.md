@@ -16,7 +16,7 @@ test failing.
 
 1. **Tooling**: `pyproject.toml` (uv, Django 5.2, DRF, drf-spectacular, psycopg 3, redis, celery,
    argon2-cffi, django-otp, PyJWT, uuid6, sentry-sdk, hypothesis, pytest-django, factory-boy, ruff, black,
-   mypy). `Makefile` targets from `06-implementation-plan.md §5`. `infra/compose.yml`, `compose.dev.yml`,
+   mypy). `Makefile` targets from `07-implementation-plan.md §5`. `infra/compose.yml`, `compose.dev.yml`,
    `Caddyfile`, `.env.example`.
 2. **`apps/core`**: `uuid7.py`, `money.py` (`PesewasField`), `tenancy.py`, `business_date.py`,
    `errors.py` (problem+json handler + `ErrorCode`), `idempotency.py` + `IdempotencyKey` model,

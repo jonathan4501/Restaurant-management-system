@@ -26,7 +26,7 @@ the rules in ADR-0008; the cashier's declared cash is compared with what the sys
 1. Shift open/close as commands; one open shift per cashier (partial unique index exists). Close computes
    `expected_cash_pesewas` from projections: `float + Σ CASH payments − Σ PAID_OUT + Σ PAID_IN`, non-voided only.
    Response and Z-report show expected, declared, variance, totals by method, movements list.
-2. Payment recording per `07-backend-architecture.md §9`. `external_reference` normalised
+2. Payment recording per `08-backend-architecture.md §9`. `external_reference` normalised
    (trim, upper, strip spaces). Cash: `tendered ≥ amount`, `change = tendered − amount`, both stored.
    Response includes `balance_pesewas` after this payment and `change_pesewas` large enough to display.
 3. Settlement inside the same handler: balance 0 → `SESSION_SETTLED` + `ORDER_CLOSED` per SERVED order.

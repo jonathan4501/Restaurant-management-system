@@ -12,7 +12,7 @@ enforced server-side, every line snapshotted, every total an integer, every proj
 ## Endpoints
 
 Floor: `GET /tables` · `POST /sessions` · `GET /sessions/{id}` · `GET /sessions/{id}/bill` · `POST /sessions/{id}/close`.
-Orders: everything under `/orders` in `08-api-contract.md §3` except `/fire` (return 501).
+Orders: everything under `/orders` in `09-api-contract.md §3` except `/fire` (return 501).
 KDS read: `GET /kds/tickets`.
 Guest router: `POST /guest/orders`, `/items`, `/remove`, `/modify`, `/submit`, `GET /guest/orders/{id}`.
 
@@ -65,5 +65,5 @@ are emitted by WS05's settlement/reopen handlers, but their **projectors** live 
 
 ## Exit criteria
 
-The `curl` walk-through in `08-api-contract.md §6` step 3 works, including the idempotent replay, and
+The `curl` walk-through in `09-api-contract.md §6` step 3 works, including the idempotent replay, and
 `verify_projections` is clean afterwards.

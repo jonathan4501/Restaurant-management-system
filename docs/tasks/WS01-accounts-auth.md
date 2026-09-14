@@ -1,6 +1,6 @@
 # WS01 — Accounts and authentication
 
-**Goal:** every principal in `07-backend-architecture.md §6` can be established end-to-end, and every
+**Goal:** every principal in `08-backend-architecture.md §6` can be established end-to-end, and every
 failure is recorded.
 
 **Depends on:** WS00. **Blocks:** WS03 (needs staff principals in tests), WS07 (login screen).
@@ -9,7 +9,7 @@ failure is recorded.
 
 `backend/apps/accounts/` (all of it except what WS00 created — extend, do not rewrite).
 
-## Endpoints (see `08-api-contract.md`)
+## Endpoints (see `09-api-contract.md`)
 
 `POST /devices/enrol` · `GET /devices/me` · `POST /auth/pin` · `POST /auth/authorise` ·
 `POST /auth/owner/login` · `POST /auth/owner/totp` · `POST /auth/logout` ·
@@ -51,4 +51,4 @@ failure is recorded.
 
 ## Exit criteria
 
-The `curl` walk-through in `08-api-contract.md §6` steps 1–2 work against a seeded database.
+The `curl` walk-through in `09-api-contract.md §6` steps 1–2 work against a seeded database.

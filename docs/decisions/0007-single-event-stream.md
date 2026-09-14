@@ -44,7 +44,7 @@ many restaurants the lock is per tenant so restaurants never wait on each other.
 - The owner's event log is `SELECT … ORDER BY seq`, filterable by `aggregate_type`, `actor_id`,
   `event_type`, `reason_code`. No joins across audit tables.
 - Every command in the system, not only order commands, goes through the same runner
-  (`docs/07-backend-architecture.md`). There is no second write path to forget.
+  (`docs/08-backend-architecture.md`). There is no second write path to forget.
 - Projection tables exist per aggregate (`orders`, `order_items`, `table_sessions`, `shifts`,
   `menu_items.is_available`). Each is rebuildable from the stream filtered by its `aggregate_type`.
 

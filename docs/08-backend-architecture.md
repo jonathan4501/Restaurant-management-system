@@ -298,7 +298,7 @@ returned is `int`. No other module imports `Decimal`.
 
 Reads projections only — never folds the event log at request time. `daily_sales` is written by the
 Celery beat task `rollup_daily_sales` at `day_cutover_hour` for the previous business date and can be
-re-run idempotently. The four owner endpoints in `08-api-contract.md §Owner` map one-to-one to the four
+re-run idempotently. The four owner endpoints in `09-api-contract.md §Owner` map one-to-one to the four
 panels in `01-product-spec.md §8`, in that order. The money figure is `money_taken_pesewas` and its
 OpenAPI description reads "Money taken (gross cash through the till)".
 
@@ -316,7 +316,7 @@ All errors are RFC 9457 `application/problem+json`:
 
 `ApiError(status, code, detail, errors=None)` raised anywhere in a handler becomes this shape. DRF
 `ValidationError` becomes `400 validation_error` with field errors under `errors`. The full `code` list is
-in `08-api-contract.md §2`.
+in `09-api-contract.md §2`.
 
 ---
 

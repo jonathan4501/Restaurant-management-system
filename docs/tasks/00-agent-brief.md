@@ -8,7 +8,7 @@ your pull request.
 
 1. `/CLAUDE.md` — binding rules and scope boundaries. Ten minutes. Non-negotiable.
 2. Your `docs/tasks/WSNN-*.md` — goal, owned paths, exit criteria.
-3. `docs/07-backend-architecture.md` and `docs/08-api-contract.md` — the interfaces you build on and expose.
+3. `docs/08-backend-architecture.md` and `docs/09-api-contract.md` — the interfaces you build on and expose.
 4. `docs/03-data-model.md` — only the tables your workstream touches.
 5. `docs/decisions/` — read an ADR before changing anything it decided.
 

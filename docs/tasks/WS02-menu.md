@@ -35,7 +35,7 @@ and the price edit that is logged when it happens during service.
 5. `menu/snapshot.py::snapshot_line(menu_item, modifier_ids, quantity)` → `(name, unit_price, prep_station,
    modifiers[{id, name, price_pesewas}], line_total)`. Validates: item active and available; each modifier
    belongs to a group linked to the item and is available; `ONE` groups have at most one; `is_required`
-   groups have exactly one. Raises `ApiError` with the codes in `08-api-contract.md §2`. **WS03 calls this;
+   groups have exactly one. Raises `ApiError` with the codes in `09-api-contract.md §2`. **WS03 calls this;
    it is the only place a price is read from the menu.**
 
 ## Tests required

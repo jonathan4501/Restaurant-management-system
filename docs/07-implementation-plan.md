@@ -3,8 +3,8 @@
 How the system in `01`–`05` gets built, by whom, in what order. Written for AI coding agents and
 humans alike. `CLAUDE.md` is binding; this document is the schedule and the map.
 
-Companion documents: `07-backend-architecture.md` (how the backend is put together, module by module),
-`08-api-contract.md` (every endpoint, header and error), `tasks/` (one work package per workstream).
+Companion documents: `08-backend-architecture.md` (how the backend is put together, module by module),
+`09-api-contract.md` (every endpoint, header and error), `tasks/` (one work package per workstream).
 
 ---
 
@@ -88,7 +88,7 @@ most detailed. WS01, WS02, WS07 and WS13 run in parallel the moment WS00 merges.
 
 Read `docs/tasks/00-agent-brief.md`. In short:
 
-1. Read `CLAUDE.md`, then your `WS-NN.md`, then `07` and `08`. Start.
+1. Read `CLAUDE.md`, then your `WS-NN.md`, then `08` and `09`. Start.
 2. Stay inside the paths your workstream owns. Need a change elsewhere? Describe it in your PR;
    do not make it.
 3. Every write goes through the command runner in `apps/core/commands.py`. No direct writes to

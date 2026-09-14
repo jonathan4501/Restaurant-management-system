@@ -187,11 +187,19 @@ Reference the phase where useful: `feat(kds): ticket age timer with 10/15 min th
 | What are the tables? | `docs/03-data-model.md` |
 | What do we build first? | `docs/04-build-plan.md` |
 | Why does Accra change the design? | `docs/05-operating-context-ghana.md` |
-| Who builds what, in what order? | `docs/06-implementation-plan.md` |
-| How is the backend wired, module by module? | `docs/07-backend-architecture.md` |
-| What are the endpoints, headers, errors? | `docs/08-api-contract.md` |
+| What should the UI look like? | `docs/06-design-prompts.md` — palette, type, touch targets, per-screen specs |
+| Who builds what, in what order? | `docs/07-implementation-plan.md` |
+| How is the backend wired, module by module? | `docs/08-backend-architecture.md` |
+| What are the endpoints, headers, errors? | `docs/09-api-contract.md` |
 | What is my workstream's task? | `docs/tasks/00-agent-brief.md`, then `docs/tasks/WSNN-*.md` |
 | Why was X chosen over Y? | `docs/decisions/` |
 
-Note for agents: `docs/prototype/renzy-demo.html` is a **visual** reference only. It predates ADR-0005
-and ADR-0001 — it computes tax lines, logs a fake GRA event and hard-deletes voided orders. Never copy its logic.
+**Building UI?** `docs/06-design-prompts.md` carries the binding design tokens: guest screens light,
+staff screens dark, 56px minimum touch targets on staff screens (64px for primary actions), no
+hover-only interactions, no animation on staff screens except the kitchen ticket timer.
+
+**Building backend?** Every write goes through `apps/core/commands.py::run_command` via a
+`CommandView`. The invariant tests in `apps/core/tests/test_invariants.py` fail the build on a float
+field, a model without `restaurant`, a POST route that is not a `CommandView`, or `unscoped()` outside
+the allow-list. `docs/prototype/renzy-demo.html` is a **visual** reference only: it predates ADR-0005
+and ADR-0001 (tax lines, a fake GRA event, hard-deleted voids). Never copy its logic.

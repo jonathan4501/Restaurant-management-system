@@ -24,11 +24,23 @@ cross without being asked.
 | [`docs/03-data-model.md`](docs/03-data-model.md) | The schema |
 | [`docs/04-build-plan.md`](docs/04-build-plan.md) | Phases, exit conditions, costs |
 | [`docs/05-operating-context-ghana.md`](docs/05-operating-context-ghana.md) | Why Accra changes the design |
-| [`docs/06-implementation-plan.md`](docs/06-implementation-plan.md) | Repo layout, workstreams, critical path, how agents work |
-| [`docs/07-backend-architecture.md`](docs/07-backend-architecture.md) | Command runner, tenancy, idempotency, event store, auth, SSE — module by module |
-| [`docs/08-api-contract.md`](docs/08-api-contract.md) | Every endpoint, header, error code and the SSE envelope |
+| [`docs/06-design-prompts.md`](docs/06-design-prompts.md) | The design system and a prompt per screen |
+| [`docs/07-implementation-plan.md`](docs/07-implementation-plan.md) | Repo layout, workstreams, critical path, how agents work |
+| [`docs/08-backend-architecture.md`](docs/08-backend-architecture.md) | Command runner, tenancy, idempotency, event store, auth, SSE — module by module |
+| [`docs/09-api-contract.md`](docs/09-api-contract.md) | Every endpoint, header, error code and the SSE envelope |
 | [`docs/tasks/`](docs/tasks/) | The agent brief and one work package per workstream (WS00–WS13) |
 | [`docs/decisions/`](docs/decisions/) | Why X was chosen over Y |
+
+## Running it locally
+
+```
+docker compose -f infra/compose.dev.yml up -d db redis     # Postgres on :5433, Redis on :6379
+cd backend && uv sync && uv run python manage.py migrate && uv run python manage.py seed_renzy
+uv run uvicorn config.asgi:application --reload            # API on :8000, docs at /api/docs/
+cd ../frontend && npm install && npm run dev               # PWA on :3000
+```
+
+`make check` (or the same commands in the Makefile on Windows) runs everything CI runs.
 
 ---
 
