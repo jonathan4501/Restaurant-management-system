@@ -7,4 +7,7 @@ class MenuConfig(AppConfig):
     default_auto_field = "django.db.models.BigAutoField"
 
     def ready(self) -> None:
-        from . import projector  # noqa: F401  (registers projection handlers)
+        from . import projector as _projector  # noqa: F401
+        from . import signals as _signals
+
+        _signals.connect_signals()
