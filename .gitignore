@@ -48,3 +48,6 @@ desktop.ini
 *.dump
 *.sql.gz
 /backups/
+
+# Hypothesis example database
+.hypothesis/

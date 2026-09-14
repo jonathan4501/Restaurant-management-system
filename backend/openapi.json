@@ -1,0 +1,42 @@
+openapi: 3.0.3
+info:
+  title: RENZY API
+  version: 1.0.0
+  description: Order and sales system for RENZY, Shiashi, Accra. All money fields
+    are integer pesewas (`*_pesewas`). Every POST requires an `Idempotency-Key` (UUIDv7).
+    Gross sales figures are 'Money taken' — gross cash through the till, not revenue.
+paths:
+  /api/v1/events:
+    get:
+      operationId: events_retrieve
+      description: GET /api/v1/events?since=<seq>&limit=200 — polling fallback with
+        the same envelopes as the stream.
+      summary: Poll events (SSE fallback)
+      parameters:
+      - in: query
+        name: limit
+        schema:
+          type: integer
+        description: Max events (default 200, max 1000).
+      - in: query
+        name: since
+        schema:
+          type: integer
+        description: Last seq seen. Returns events with seq > since.
+      - name: X-Device-Token
+        in: header
+        required: false
+        description: Enrolled device token. Required for every staff request.
+        schema:
+          type: string
+      tags:
+      - events
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+components: {}

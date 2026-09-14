@@ -1,0 +1,43 @@
+# Local development. Postgres + Redis in containers; run the API and frontend on the host for hot reload,
+# or `--profile app` to run the API in a container too.
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: renzy
+      POSTGRES_PASSWORD: renzy
+      POSTGRES_DB: renzy
+    ports: ["5433:5432"]  # 5433 on the host: avoids clashing with a locally installed Postgres
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U renzy"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports: ["6379:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    profiles: ["app"]
+    build: ../backend
+    command: uv run uvicorn config.asgi:application --host 0.0.0.0 --port 8000 --reload
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.dev
+      DATABASE_URL: postgres://renzy:renzy@db:5432/renzy
+      REDIS_URL: redis://redis:6379/0
+    volumes: ["../backend:/app"]
+    ports: ["8000:8000"]
+    depends_on:
+      db: { condition: service_healthy }
+      redis: { condition: service_healthy }
+
+volumes:
+  pgdata:

@@ -1,0 +1,27 @@
+{$API_DOMAIN} {
+	encode gzip
+
+	handle /static/* {
+		root * /srv
+		file_server
+	}
+	handle /media/* {
+		root * /srv
+		file_server
+	}
+
+	# Server-Sent Events: never buffer, never time out.
+	handle /api/v1/stream {
+		reverse_proxy api:8000 {
+			flush_interval -1
+			transport http {
+				read_timeout 0
+				write_timeout 0
+			}
+		}
+	}
+
+	handle {
+		reverse_proxy api:8000
+	}
+}
