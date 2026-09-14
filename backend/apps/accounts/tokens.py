@@ -1,9 +1,8 @@
 """
-Tokens. Issuance endpoints are WS01; this module is the shared vocabulary so that verification
-(needed by WS00's principal resolution) and issuance agree by construction.
+Tokens. Issuance and verification agree by construction.
 
     device token   opaque 32-byte urlsafe, stored as sha256, header X-Device-Token
-    staff JWT      HS256, 12 h, {sub, role, rid, did, jti}
+    staff JWT      HS256, 12 h, {sub, role, rid, did, jti}; jti registered in Redis
     guest JWT      HS256, 2 h,  {sid, rid, role: GUEST, mode}
 """
 
@@ -18,6 +17,8 @@ from typing import Any
 import jwt
 from django.conf import settings
 
+from .jwt_sessions import jti_is_active, register_jti
+
 ALGORITHM = "HS256"
 
 
@@ -31,15 +32,19 @@ def hash_device_token(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
 
 
-def _issue(claims: dict[str, Any], ttl_seconds: int) -> str:
+def _issue(claims: dict[str, Any], ttl_seconds: int, *, register: bool = False) -> str:
     now = datetime.now(UTC)
+    jti = uuid.uuid4().hex
     payload = {
         **claims,
         "iat": now,
         "exp": now + timedelta(seconds=ttl_seconds),
-        "jti": uuid.uuid4().hex,
+        "jti": jti,
     }
-    return jwt.encode(payload, settings.JWT_SIGNING_KEY, algorithm=ALGORITHM)
+    token = jwt.encode(payload, settings.JWT_SIGNING_KEY, algorithm=ALGORITHM)
+    if register:
+        register_jti(jti, ttl_seconds=ttl_seconds)
+    return token
 
 
 def issue_staff_token(
@@ -54,6 +59,7 @@ def issue_staff_token(
             "did": str(device_id),
         },
         settings.STAFF_TOKEN_TTL_SECONDS,
+        register=True,
     )
 
 
@@ -79,8 +85,18 @@ class TokenError(Exception):
 
 def decode(token: str) -> dict[str, Any]:
     try:
-        return jwt.decode(token, settings.JWT_SIGNING_KEY, algorithms=[ALGORITHM])
+        claims = jwt.decode(token, settings.JWT_SIGNING_KEY, algorithms=[ALGORITHM])
     except jwt.ExpiredSignatureError as err:
         raise TokenError("token_expired", "Token has expired.") from err
     except jwt.InvalidTokenError as err:
         raise TokenError("token_invalid", "Token is not valid.") from err
+
+    if claims.get("kind") == "STAFF":
+        jti = claims.get("jti")
+        if not jti or not jti_is_active(str(jti)):
+            raise TokenError("token_invalid", "Token has been revoked.")
+    return claims
+
+
+def staff_token_expires_at() -> datetime:
+    return datetime.now(UTC) + timedelta(seconds=settings.STAFF_TOKEN_TTL_SECONDS)

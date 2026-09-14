@@ -3,12 +3,16 @@ Seed RENZY: one restaurant, twelve tables, five staff (PIN 1234 in dev), the pro
 Idempotent — safe to run twice. Prices are already integer pesewas.
 """
 
+from datetime import timedelta
 from typing import Any
 
+from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
 from django.db import transaction
+from django.utils import timezone
 
-from apps.accounts.models import Restaurant, Staff
+from apps.accounts.enrolment import normalize_enrolment_code
+from apps.accounts.models import Device, Restaurant, Staff
 from apps.accounts.pins import hash_pin
 from apps.core.tenancy import restaurant_context
 from apps.floor.models import Table
@@ -21,6 +25,9 @@ STAFF = [
     ("Ama Owusu", "CASHIER"),
     ("Akosua Darko", "MANAGER"),
 ]
+
+# Fixed enrolment code for the curl walk-through in docs/09-api-contract.md §6.
+DEMO_ENROLMENT_CODE = "ABCD-1234"
 
 MOD_GROUPS = {
     "spice": (
@@ -168,6 +175,35 @@ class Command(BaseCommand):
                     full_name=name, defaults={"role": role, "pin_hash": pin_hash}
                 )
 
+            User = get_user_model()
+            owner_email = "owner@renzy.gh"
+            user, created = User.objects.get_or_create(
+                username=owner_email, defaults={"email": owner_email}
+            )
+            if created:
+                user.set_password("renzy-owner-dev-only")
+                user.is_staff = True
+                user.save()
+            Staff.objects.get_or_create(
+                full_name="RENZY Owner",
+                defaults={
+                    "role": "OWNER",
+                    "pin_hash": pin_hash,
+                    "email": owner_email,
+                    "user": user,
+                },
+            )
+
+            # Pending tablet for the §6 curl walk-through (enrol → pin login).
+            Device.objects.get_or_create(
+                label="Floor tablet 1",
+                defaults={
+                    "allowed_roles": ["WAITER", "CASHIER", "MANAGER"],
+                    "enrolment_code": normalize_enrolment_code(DEMO_ENROLMENT_CODE),
+                    "enrolment_expires_at": timezone.now() + timedelta(days=30),
+                },
+            )
+
             for n in range(1, 13):
                 Table.objects.get_or_create(
                     number=str(n), defaults={"seats": 4, "qr_token": Table.new_qr_token()}
@@ -211,5 +247,8 @@ class Command(BaseCommand):
                     )
 
         self.stdout.write(
-            self.style.SUCCESS(f"Seeded RENZY ({restaurant.id}). Staff PIN: {opts['pin']}")
+            self.style.SUCCESS(
+                f"Seeded RENZY ({restaurant.id}). Staff PIN: {opts['pin']}. "
+                f"Enrolment code: {DEMO_ENROLMENT_CODE}"
+            )
         )
