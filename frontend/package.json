@@ -1,0 +1,39 @@
+{
+  "name": "renzy-pwa",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "types": "openapi-typescript ../backend/openapi.json -o lib/api/schema.d.ts",
+    "mock": "npx --yes @stoplight/prism-cli mock ../backend/openapi.json -p 4010"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "^5.90.0",
+    "idb": "^8.0.3",
+    "next": "15.5.25",
+    "openapi-fetch": "^0.14.0",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "uuid": "^11.1.0",
+    "zustand": "^5.0.8"
+  },
+  "devDependencies": {
+    "@eslint/eslintrc": "^3",
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "15.5.25",
+    "openapi-typescript": "^7.9.0",
+    "tailwindcss": "^4",
+    "typescript": "^5",
+    "vitest": "^3.2.4"
+  }
+}
