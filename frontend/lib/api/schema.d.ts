@@ -24,10 +24,91 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/menu": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Full menu (categories → items → modifier groups → modifiers)
+         * @description GET /menu — full active menu tree with ETag / If-None-Match.
+         */
+        get: operations["menu_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/menu/items/{item_id}/86": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** 86 a menu item (mark unavailable) */
+        post: operations["menu_item_86"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/menu/items/{item_id}/price": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change a menu item price (auth required during service)
+         * @description POST /menu/items/{id}/price.
+         *
+         *     During service hours, requires manager authorisation with purpose
+         *     PRICE_CHANGE_IN_SERVICE. Outside service hours, no authorisation block.
+         */
+        post: operations["menu_item_price"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/menu/items/{item_id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Restore an 86'd menu item */
+        post: operations["menu_item_restore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
-    schemas: never;
+    schemas: {
+        PriceChangeInputRequest: {
+            price_pesewas: number;
+        };
+    };
     responses: never;
     parameters: never;
     requestBodies: never;
@@ -49,6 +130,131 @@ export interface operations {
                 "X-Device-Token"?: string;
             };
             path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    menu_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Enrolled device token. Required for every staff request. */
+                "X-Device-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description No response body */
+            304: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    menu_item_86: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
+                "Idempotency-Key": string;
+                /** @description The device's clock at send time (ISO 8601). Stored for audit; never used for ordering. */
+                "X-Client-Time"?: string;
+                /** @description Enrolled device token. Required for every staff request. */
+                "X-Device-Token"?: string;
+            };
+            path: {
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    menu_item_price: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
+                "Idempotency-Key": string;
+                /** @description The device's clock at send time (ISO 8601). Stored for audit; never used for ordering. */
+                "X-Client-Time"?: string;
+                /** @description Enrolled device token. Required for every staff request. */
+                "X-Device-Token"?: string;
+            };
+            path: {
+                item_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PriceChangeInputRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    menu_item_restore: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
+                "Idempotency-Key": string;
+                /** @description The device's clock at send time (ISO 8601). Stored for audit; never used for ordering. */
+                "X-Client-Time"?: string;
+                /** @description Enrolled device token. Required for every staff request. */
+                "X-Device-Token"?: string;
+            };
+            path: {
+                item_id: string;
+            };
             cookie?: never;
         };
         requestBody?: never;
