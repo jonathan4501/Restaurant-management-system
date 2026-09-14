@@ -1,0 +1,1245 @@
+<!--
+  PHASE 0 PROTOTYPE — VISUAL REFERENCE ONLY.
+  This file predates ADR-0005 (no tax engine) and ADR-0001 (append-only events):
+    - taxBreakdown()/RATES add NHIL, GETFund, Tourism Levy and VAT. The real system computes NO tax.
+    - It logs a fake "GRA E-VAT · INVOICE_CLEARED" event. The real system makes no GRA calls.
+    - Voids hard-delete orders (state.orders.filter). The real system never deletes; voids are events.
+  Copy the look and the interaction flow. Never copy the logic. See CLAUDE.md and docs/08-api-contract.md.
+-->
+<title>RENZY Service Floor</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Instrument+Serif:ital@0;1&display=swap">
+<style>
+:root{
+  --ground:#EAEEEC;
+  --surface:#FFFFFF;
+  --surface-2:#F4F7F5;
+  --surface-3:#E4EAE7;
+  --line:#D3DCD8;
+  --line-strong:#B7C4BF;
+  --ink:#101A17;
+  --ink-2:#3C4C47;
+  --ink-3:#6C7C77;
+  --accent:#0B6E5F;
+  --accent-ink:#FFFFFF;
+  --accent-soft:#D8EDE8;
+  --accent-line:#8FC9BE;
+  --warn:#9A5B08;
+  --warn-soft:#FBEBD6;
+  --warn-line:#E3BE85;
+  --danger:#A8241D;
+  --danger-soft:#FBE3E1;
+  --danger-line:#E2A6A1;
+  --queue:#3D5A80;
+  --queue-soft:#DEE6F0;
+  --queue-line:#A8BCD4;
+  --shadow:0 1px 2px rgba(16,26,23,.07), 0 6px 18px rgba(16,26,23,.06);
+  --shadow-lift:0 2px 6px rgba(16,26,23,.10), 0 18px 40px rgba(16,26,23,.12);
+  --r:10px;
+  --sans:"Archivo","Helvetica Neue",Helvetica,Arial,sans-serif;
+  --serif:"Instrument Serif",Georgia,"Times New Roman",serif;
+  --mono:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#0C1412;
+    --surface:#141E1B;
+    --surface-2:#1B2723;
+    --surface-3:#25332E;
+    --line:#2C3A35;
+    --line-strong:#3E4F49;
+    --ink:#E8EFEC;
+    --ink-2:#AFC0BA;
+    --ink-3:#7E918B;
+    --accent:#4FBFA8;
+    --accent-ink:#06211C;
+    --accent-soft:#16332D;
+    --accent-line:#2A5D53;
+    --warn:#E0A356;
+    --warn-soft:#33260F;
+    --warn-line:#5E4620;
+    --danger:#EC8B84;
+    --danger-soft:#361A18;
+    --danger-line:#5E2E2A;
+    --queue:#8FB0D4;
+    --queue-soft:#182431;
+    --queue-line:#2E4560;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 6px 18px rgba(0,0,0,.3);
+    --shadow-lift:0 2px 6px rgba(0,0,0,.5), 0 18px 40px rgba(0,0,0,.45);
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0C1412; --surface:#141E1B; --surface-2:#1B2723; --surface-3:#25332E;
+  --line:#2C3A35; --line-strong:#3E4F49; --ink:#E8EFEC; --ink-2:#AFC0BA; --ink-3:#7E918B;
+  --accent:#4FBFA8; --accent-ink:#06211C; --accent-soft:#16332D; --accent-line:#2A5D53;
+  --warn:#E0A356; --warn-soft:#33260F; --warn-line:#5E4620;
+  --danger:#EC8B84; --danger-soft:#361A18; --danger-line:#5E2E2A;
+  --queue:#8FB0D4; --queue-soft:#182431; --queue-line:#2E4560;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 6px 18px rgba(0,0,0,.3);
+  --shadow-lift:0 2px 6px rgba(0,0,0,.5), 0 18px 40px rgba(0,0,0,.45);
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--ground); color:var(--ink);
+  font-family:var(--sans); font-size:15px; line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+}
+button{font:inherit;color:inherit;cursor:pointer;border:none;background:none}
+button:focus-visible,[tabindex]:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+h1,h2,h3,h4{margin:0;text-wrap:balance}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+
+/* ---------- shell ---------- */
+.wrap{max-width:1340px;margin:0 auto;padding-inline:16px;padding-block:18px 40px}
+
+.topbar{display:flex;flex-wrap:wrap;gap:14px 20px;align-items:flex-end;justify-content:space-between;margin-bottom:14px}
+.brand{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.brand .mark{font-family:var(--serif);font-size:34px;line-height:1;letter-spacing:.01em}
+.brand .loc{font-size:12.5px;color:var(--ink-3);letter-spacing:.09em;text-transform:uppercase;font-weight:600}
+.demo-tag{
+  font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--warn);background:var(--warn-soft);border:1px solid var(--warn-line);
+  padding:3px 8px;border-radius:999px;white-space:nowrap
+}
+.clockbox{display:flex;align-items:center;gap:14px;font-size:12.5px;color:var(--ink-3)}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--accent);display:inline-block;margin-right:6px}
+
+/* station switcher — styled as hardware tabs */
+.stations{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:0;position:relative;z-index:2}
+.station{
+  display:flex;flex-direction:column;gap:1px;align-items:flex-start;
+  padding:9px 15px 11px;border:1px solid var(--line);border-bottom:none;
+  background:var(--surface-2);color:var(--ink-3);
+  border-radius:9px 9px 0 0;transition:background .12s,color .12s;min-width:0
+}
+.station:hover{background:var(--surface-3);color:var(--ink-2)}
+.station .who{font-size:10px;letter-spacing:.11em;text-transform:uppercase;font-weight:700;opacity:.8}
+.station .what{font-size:14px;font-weight:600;white-space:nowrap}
+.station[aria-selected="true"]{
+  background:var(--surface);color:var(--ink);
+  box-shadow:inset 0 3px 0 var(--accent);
+}
+.station[aria-selected="true"] .who{color:var(--accent);opacity:1}
+
+.screen{
+  background:var(--surface);border:1px solid var(--line);border-radius:0 12px 12px 12px;
+  box-shadow:var(--shadow);overflow:hidden;margin-top:-1px
+}
+.screen-head{
+  display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between;
+  padding:12px 18px;border-bottom:1px solid var(--line);background:var(--surface-2)
+}
+.screen-title{font-size:15px;font-weight:700;letter-spacing:-.01em}
+.screen-sub{font-size:12.5px;color:var(--ink-3)}
+.pad{padding:18px}
+
+/* ---------- generic bits ---------- */
+.chip{
+  font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+  padding:3px 8px;border-radius:5px;border:1px solid;white-space:nowrap;display:inline-block
+}
+.c-queue{color:var(--queue);background:var(--queue-soft);border-color:var(--queue-line)}
+.c-warn{color:var(--warn);background:var(--warn-soft);border-color:var(--warn-line)}
+.c-ok{color:var(--accent);background:var(--accent-soft);border-color:var(--accent-line)}
+.c-bad{color:var(--danger);background:var(--danger-soft);border-color:var(--danger-line)}
+.c-mute{color:var(--ink-3);background:var(--surface-2);border-color:var(--line)}
+
+.btn{
+  border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);
+  padding:9px 14px;border-radius:8px;font-weight:600;font-size:14px;transition:background .12s
+}
+.btn:hover{background:var(--surface-2)}
+.btn-primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn-primary:hover{filter:brightness(1.08);background:var(--accent)}
+.btn-danger{color:var(--danger);border-color:var(--danger-line);background:var(--danger-soft)}
+.btn-danger:hover{filter:brightness(.97);background:var(--danger-soft)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn-block{width:100%;display:block;text-align:center}
+.btn-lg{padding:13px 16px;font-size:15px}
+
+.eyebrow{font-size:10.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3)}
+
+/* ---------- CUSTOMER ---------- */
+.cust{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:18px;align-items:start}
+.cats{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:14px}
+.cat{
+  padding:7px 13px;border-radius:999px;border:1px solid var(--line);
+  background:var(--surface-2);font-size:13.5px;font-weight:600;color:var(--ink-2)
+}
+.cat[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(212px,1fr));gap:10px}
+.dish{
+  text-align:left;border:1px solid var(--line);border-radius:var(--r);padding:12px 13px;
+  background:var(--surface);display:flex;flex-direction:column;gap:5px;transition:border-color .12s,transform .08s
+}
+.dish:hover{border-color:var(--accent-line);transform:translateY(-1px)}
+.dish .nm{font-weight:600;font-size:14.5px;line-height:1.25}
+.dish .ds{font-size:12px;color:var(--ink-3);line-height:1.35;flex:1}
+.dish .pr{font-family:var(--mono);font-size:14px;font-weight:600;color:var(--accent);margin-top:2px}
+.dish.out{opacity:.5;cursor:not-allowed}
+.dish.out:hover{border-color:var(--line);transform:none}
+.dish.out .pr{color:var(--ink-3);text-decoration:line-through}
+
+.cart{border:1px solid var(--line);border-radius:var(--r);background:var(--surface-2);position:sticky;top:14px}
+.cart-h{padding:12px 14px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:baseline}
+.cart-h .tbl{font-family:var(--serif);font-size:22px;line-height:1}
+.cart-lines{padding:6px 14px;max-height:270px;overflow-y:auto}
+.ln{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:9px 0;border-bottom:1px solid var(--line)}
+.ln:last-child{border-bottom:none}
+.ln .nm{font-size:13.5px;font-weight:600;line-height:1.3}
+.ln .amt{font-family:var(--mono);font-size:13.5px;font-weight:600}
+.ln .mods{grid-column:1/-1;font-size:11.5px;color:var(--ink-3);font-style:italic}
+.qty{display:flex;align-items:center;gap:8px;grid-column:1/-1;margin-top:4px}
+.qbtn{width:24px;height:24px;border:1px solid var(--line-strong);border-radius:6px;background:var(--surface);font-size:15px;line-height:1;display:grid;place-items:center}
+.qbtn:hover{background:var(--surface-3)}
+.qn{font-family:var(--mono);font-size:13px;min-width:16px;text-align:center}
+.empty{padding:26px 14px;text-align:center;color:var(--ink-3);font-size:13px}
+
+.totals{padding:12px 14px;border-top:1px solid var(--line);background:var(--surface)}
+.trow{display:flex;justify-content:space-between;gap:12px;font-size:12.5px;color:var(--ink-2);padding:2.5px 0}
+.trow .num{font-size:12.5px}
+.trow.sub{font-size:14px;font-weight:600;color:var(--ink);padding-bottom:7px}
+.trow.sub .num{font-size:14px}
+.trow.grand{
+  font-size:17px;font-weight:700;color:var(--ink);
+  border-top:1px solid var(--line-strong);margin-top:8px;padding-top:9px
+}
+.trow.grand .num{font-size:19px;font-weight:600}
+.taxnote{font-size:10.5px;color:var(--ink-3);letter-spacing:.05em;text-transform:uppercase;font-weight:700;margin:9px 0 3px}
+.cart-foot{padding:12px 14px;border-top:1px solid var(--line)}
+
+/* modifier sheet */
+.scrim{position:fixed;inset:0;background:rgba(10,18,16,.55);display:grid;place-items:center;padding:16px;z-index:50}
+.sheet{
+  background:var(--surface);border:1px solid var(--line);border-radius:14px;
+  box-shadow:var(--shadow-lift);width:min(440px,100%);max-height:86vh;overflow-y:auto
+}
+.sheet-h{padding:16px 18px 12px;border-bottom:1px solid var(--line)}
+.sheet-b{padding:14px 18px}
+.sheet-f{padding:14px 18px;border-top:1px solid var(--line);display:flex;gap:9px}
+.optgrp{margin-bottom:15px}
+.optgrp:last-child{margin-bottom:0}
+.opt{display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;margin-top:6px;font-size:13.5px;cursor:pointer}
+.opt:hover{background:var(--surface-2)}
+.opt input{accent-color:var(--accent);margin:0;width:16px;height:16px}
+.opt .plus{margin-left:auto;font-family:var(--mono);font-size:12.5px;color:var(--ink-3)}
+
+/* ---------- KITCHEN ---------- */
+.kds{background:var(--surface-2)}
+.sold-out{
+  display:flex;flex-wrap:wrap;gap:8px;align-items:center;
+  padding:10px 18px;border-bottom:1px solid var(--line);background:var(--danger-soft)
+}
+.sold-out .lbl{font-size:10.5px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;color:var(--danger)}
+.kcols{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;padding:18px}
+.kcol{display:flex;flex-direction:column;gap:10px;min-width:0}
+.kcol-h{display:flex;align-items:center;justify-content:space-between;gap:8px;padding-bottom:9px;border-bottom:2px solid var(--line)}
+.kcol-h .t{font-size:12px;font-weight:700;letter-spacing:.11em;text-transform:uppercase}
+.kcol-h .n{font-family:var(--mono);font-size:13px;color:var(--ink-3)}
+.kcol[data-col="new"] .kcol-h{border-color:var(--queue-line)}
+.kcol[data-col="new"] .kcol-h .t{color:var(--queue)}
+.kcol[data-col="prep"] .kcol-h{border-color:var(--warn-line)}
+.kcol[data-col="prep"] .kcol-h .t{color:var(--warn)}
+.kcol[data-col="ready"] .kcol-h{border-color:var(--accent-line)}
+.kcol[data-col="ready"] .kcol-h .t{color:var(--accent)}
+
+.ticket{
+  background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--line-strong);
+  border-radius:9px;overflow:hidden;box-shadow:var(--shadow)
+}
+.ticket[data-col="new"]{border-left-color:var(--queue)}
+.ticket[data-col="prep"]{border-left-color:var(--warn)}
+.ticket[data-col="ready"]{border-left-color:var(--accent)}
+.ticket[data-late="1"]{border-left-color:var(--danger);box-shadow:0 0 0 1px var(--danger-line),var(--shadow)}
+.tkt-h{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:10px 12px 8px}
+.tkt-h .tno{font-family:var(--mono);font-size:12px;color:var(--ink-3);font-weight:600}
+.tkt-h .tbl{font-family:var(--serif);font-size:20px;line-height:1}
+.timer{font-family:var(--mono);font-size:15px;font-weight:600;color:var(--ink-2)}
+.timer[data-lvl="warn"]{color:var(--warn)}
+.timer[data-lvl="late"]{color:var(--danger)}
+.tkt-items{padding:2px 12px 10px;display:flex;flex-direction:column;gap:7px}
+.ti{display:flex;gap:9px;align-items:baseline}
+.ti .q{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--accent);min-width:20px}
+.ti .n{font-size:13.5px;font-weight:600;line-height:1.3}
+.ti .m{font-size:11.5px;color:var(--warn);font-weight:600;display:block;font-style:italic}
+.ti .st{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);border:1px solid var(--line);padding:1px 5px;border-radius:4px;margin-left:auto;white-space:nowrap}
+.tkt-f{padding:9px 12px;border-top:1px solid var(--line);background:var(--surface-2)}
+.kempty{border:1px dashed var(--line);border-radius:9px;padding:22px 12px;text-align:center;color:var(--ink-3);font-size:12.5px}
+
+/* ---------- CASHIER ---------- */
+.cash{display:grid;grid-template-columns:300px minmax(0,1fr);gap:18px;align-items:start}
+.bills{display:flex;flex-direction:column;gap:7px}
+.bill{
+  text-align:left;border:1px solid var(--line);border-radius:9px;padding:10px 12px;background:var(--surface);
+  display:grid;grid-template-columns:1fr auto;gap:3px 10px;transition:border-color .12s
+}
+.bill:hover{border-color:var(--accent-line)}
+.bill[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);box-shadow:inset 0 0 0 1px var(--accent)}
+.bill .tbl{font-weight:700;font-size:14.5px}
+.bill .amt{font-family:var(--mono);font-weight:600;font-size:14px}
+.bill .meta{font-size:11.5px;color:var(--ink-3);grid-column:1}
+
+.paypanel{border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.pp-h{padding:13px 16px;border-bottom:1px solid var(--line);background:var(--surface-2);display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
+.pp-b{padding:16px;display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:20px;align-items:start}
+.methods{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin:10px 0 14px}
+.method{
+  border:1px solid var(--line-strong);border-radius:8px;padding:11px 10px;background:var(--surface);
+  text-align:left;display:flex;flex-direction:column;gap:2px
+}
+.method:hover{background:var(--surface-2)}
+.method[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft);box-shadow:inset 0 0 0 1px var(--accent)}
+.method .m1{font-weight:600;font-size:13.5px}
+.method .m2{font-size:11px;color:var(--ink-3)}
+.field{display:flex;flex-direction:column;gap:5px;margin-bottom:12px}
+.field label{font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3)}
+.field input{
+  font-family:var(--mono);font-size:15px;padding:9px 11px;border:1px solid var(--line-strong);
+  border-radius:7px;background:var(--surface);color:var(--ink);width:100%
+}
+.quickcash{display:flex;gap:6px;flex-wrap:wrap;margin-top:-6px;margin-bottom:12px}
+.quickcash button{border:1px solid var(--line);border-radius:6px;padding:5px 10px;font-family:var(--mono);font-size:12.5px;background:var(--surface-2)}
+.quickcash button:hover{background:var(--surface-3)}
+.change{
+  display:flex;justify-content:space-between;align-items:baseline;gap:12px;
+  padding:11px 13px;border-radius:8px;background:var(--accent-soft);border:1px solid var(--accent-line);margin-bottom:13px
+}
+.change .v{font-family:var(--mono);font-size:19px;font-weight:600;color:var(--accent)}
+
+.receipt{
+  font-family:var(--mono);font-size:11.5px;line-height:1.55;background:var(--surface-2);
+  border:1px solid var(--line);border-radius:8px;padding:16px 15px;color:var(--ink-2)
+}
+.receipt .rc{text-align:center}
+.receipt .rname{font-family:var(--serif);font-size:23px;color:var(--ink);line-height:1.1}
+.receipt hr{border:none;border-top:1px dashed var(--line-strong);margin:9px 0}
+.rline{display:flex;justify-content:space-between;gap:10px}
+.rline.b{font-weight:600;color:var(--ink);font-size:13px}
+.rsub{padding-left:10px;font-size:10.5px;color:var(--ink-3)}
+.evat{border:1px solid var(--accent-line);border-radius:7px;padding:10px;margin-top:10px;background:var(--accent-soft)}
+.evat .h{font-size:9.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--accent);text-align:center;margin-bottom:7px}
+.evat .kv{display:flex;justify-content:space-between;gap:8px;font-size:10px;color:var(--ink-2)}
+.qrbox{display:grid;place-items:center;margin:8px 0 6px}
+
+/* ---------- OWNER ---------- */
+.own{display:flex;flex-direction:column;gap:20px}
+.sec-h{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:11px}
+.sec-h h3{font-size:15px;font-weight:700;letter-spacing:-.01em}
+.sec-h p{margin:0;font-size:12.5px;color:var(--ink-3)}
+
+.variance{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.vcell{background:var(--surface);padding:13px 15px;display:flex;flex-direction:column;gap:5px}
+.vcell.flag{background:var(--danger-soft)}
+.vcell .vt{font-size:12px;font-weight:600;color:var(--ink-2);display:flex;align-items:center;gap:7px}
+.vcell .vv{font-family:var(--mono);font-size:22px;font-weight:600;line-height:1.1}
+.vcell.flag .vv{color:var(--danger)}
+.vcell .vs{font-size:11.5px;color:var(--ink-3)}
+.sev{width:8px;height:8px;border-radius:2px;background:var(--ink-3);flex:none}
+.sev.bad{background:var(--danger)}
+.sev.warn{background:var(--warn)}
+
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+.tile{border:1px solid var(--line);border-radius:var(--r);padding:13px 15px;background:var(--surface);display:flex;flex-direction:column;gap:3px}
+.tile .tl{font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-3)}
+.tile .tv{font-family:var(--mono);font-size:25px;font-weight:600;line-height:1.15;letter-spacing:-.01em}
+.tile .tm{font-size:11.5px;color:var(--ink-3)}
+
+.two{display:grid;grid-template-columns:minmax(0,1.45fr) minmax(0,1fr);gap:18px;align-items:start}
+.stack{display:flex;flex-direction:column;gap:18px;min-width:0}
+.brow .bl .c{font-family:var(--mono);font-size:12px;color:var(--ink-3);font-weight:400}
+.panel{border:1px solid var(--line);border-radius:var(--r);background:var(--surface);padding:15px 16px}
+.chartwrap{overflow-x:auto}
+
+.barlist{display:flex;flex-direction:column;gap:11px;margin-top:12px}
+.brow{display:grid;grid-template-columns:1fr auto;gap:3px 10px}
+.brow .bl{font-size:13px;font-weight:500}
+.brow .bv{font-family:var(--mono);font-size:13px;font-weight:600}
+.btrack{grid-column:1/-1;display:block;height:7px;border-radius:4px;background:var(--surface-3);overflow:hidden}
+.bfill{display:block;height:100%;border-radius:4px;background:var(--accent);min-width:3px}
+
+.tops{display:flex;flex-direction:column;gap:0;margin-top:10px}
+.top{display:grid;grid-template-columns:1fr auto auto;gap:10px;align-items:baseline;padding:9px 0;border-bottom:1px solid var(--line);font-size:13.5px}
+.top:last-child{border-bottom:none}
+.top .c{font-family:var(--mono);font-size:12.5px;color:var(--ink-3)}
+.top .v{font-family:var(--mono);font-size:13px;font-weight:600}
+
+.log{max-height:330px;overflow-y:auto;border:1px solid var(--line);border-radius:var(--r);background:var(--surface)}
+.ev{display:grid;grid-template-columns:62px 92px 1fr;gap:12px;align-items:baseline;padding:8px 14px;border-bottom:1px solid var(--line);font-size:12.5px}
+.ev:last-child{border-bottom:none}
+.ev .t{font-family:var(--mono);font-size:11.5px;color:var(--ink-3)}
+.ev .a{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ev .d{color:var(--ink-2)}
+.ev .d b{color:var(--ink);font-weight:600}
+.ev[data-flag="1"]{background:var(--danger-soft)}
+.ev[data-flag="1"] .d b{color:var(--danger)}
+
+.tablewrap{overflow-x:auto}
+.hint{
+  display:flex;gap:9px;align-items:flex-start;font-size:12.5px;color:var(--ink-2);
+  background:var(--accent-soft);border:1px solid var(--accent-line);border-radius:8px;padding:9px 12px;margin-bottom:14px
+}
+.hint b{color:var(--accent)}
+.foot{margin-top:22px;font-size:12px;color:var(--ink-3);line-height:1.6}
+.foot b{color:var(--ink-2)}
+
+@media (max-width:1080px){
+  .cust{grid-template-columns:1fr}
+  .cart{position:static}
+  .cash{grid-template-columns:1fr}
+  .pp-b{grid-template-columns:1fr}
+  .two{grid-template-columns:1fr}
+  .kcols{grid-template-columns:1fr;gap:20px}
+}
+@media (max-width:560px){
+  .brand .mark{font-size:28px}
+  .station{padding:8px 11px 10px}
+  .station .what{font-size:12.5px}
+  .grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
+  .ev{grid-template-columns:54px 1fr;row-gap:2px}
+  .ev .a{grid-column:2}
+  .ev .d{grid-column:2}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="wrap">
+  <div class="topbar">
+    <div class="brand">
+      <span class="mark">RENZY</span>
+      <span class="loc">Shiashi · Accra</span>
+      <span class="demo-tag">Prototype · sample data</span>
+    </div>
+    <div class="clockbox">
+      <span><span class="dot"></span>Synced</span>
+      <span class="num" id="clock">19:42</span>
+      <span>Mon 14 Sep 2026</span>
+    </div>
+  </div>
+
+  <div class="stations" role="tablist" aria-label="Station">
+    <button class="station" role="tab" aria-selected="true" data-view="customer">
+      <span class="who">Guest</span><span class="what">Table Tablet</span>
+    </button>
+    <button class="station" role="tab" aria-selected="false" data-view="kitchen">
+      <span class="who">Kitchen</span><span class="what">Order Display</span>
+    </button>
+    <button class="station" role="tab" aria-selected="false" data-view="cashier">
+      <span class="who">Front desk</span><span class="what">Cashier</span>
+    </button>
+    <button class="station" role="tab" aria-selected="false" data-view="owner">
+      <span class="who">Owner</span><span class="what">Back Office</span>
+    </button>
+  </div>
+
+  <div class="screen" id="screen"></div>
+
+  <p class="foot">
+    <b>How to try it:</b> add dishes on the Table Tablet and send the order, then switch to Order Display to cook it,
+    Cashier to take payment, and Back Office to see it land in the books and the audit trail.
+    All four stations share one live state, exactly as the real system would.<br>
+    Tax lines follow Ghana's 2026 VAT structure (Act 1151): NHIL 2.5%, GETFund 2.5%, Tourism Levy 1% and VAT 15%,
+    each charged on the same net value. Prices and figures are placeholders for demonstration.
+  </p>
+</div>
+
+<div id="modal"></div>
+
+<script>
+/* ============================ DATA ============================ */
+const MENU = [
+  {id:'m1', cat:'Mains', name:'Jollof Rice with Grilled Chicken', desc:'Long grain jollof, quarter chicken, salad', price:7500, station:'KITCHEN', mods:['spice','extras']},
+  {id:'m2', cat:'Mains', name:'Waakye Special', desc:'Rice & beans, wele, boiled egg, gari, shito', price:6000, station:'KITCHEN', mods:['spice','extras']},
+  {id:'m3', cat:'Mains', name:'Banku with Grilled Tilapia', desc:'Fresh banku, whole tilapia, pepper & onion', price:12000, station:'GRILL', mods:['spice','done']},
+  {id:'m4', cat:'Mains', name:'Fufu with Light Soup', desc:'Goat meat, hot light soup', price:9000, station:'KITCHEN', mods:['spice','extras']},
+  {id:'m5', cat:'Mains', name:'Fried Rice with Chicken', desc:'Vegetable fried rice, fried chicken', price:8500, station:'KITCHEN', mods:['spice','extras']},
+  {id:'m6', cat:'Mains', name:'Red Red with Plantain', desc:'Bean stew in palm oil, ripe plantain', price:5500, station:'KITCHEN', mods:['spice']},
+  {id:'m7', cat:'Mains', name:'Omo Tuo with Groundnut Soup', desc:'Rice balls, groundnut soup, chicken', price:8000, station:'KITCHEN', mods:['spice']},
+  {id:'m8', cat:'Mains', name:'Yam Chips with Chicken', desc:'Fried yam, grilled chicken, shito', price:7000, station:'KITCHEN', mods:['spice','extras']},
+
+  {id:'g1', cat:'Grill', name:'Whole Grilled Tilapia', desc:'Charcoal grilled, pepper sauce', price:13000, station:'GRILL', mods:['spice','done']},
+  {id:'g2', cat:'Grill', name:'Chicken Wings (6 pcs)', desc:'Grilled or fried, house rub', price:7000, station:'GRILL', mods:['spice','done']},
+  {id:'g3', cat:'Grill', name:'Khebab Platter', desc:'4 sticks beef suya, onions, kpakpo shito', price:8000, station:'GRILL', mods:['spice']},
+  {id:'g4', cat:'Grill', name:'Grilled Guinea Fowl', desc:'Half bird, charcoal grilled', price:15000, station:'GRILL', mods:['spice','done']},
+
+  {id:'s1', cat:'Sides', name:'Kelewele', desc:'Spiced fried ripe plantain', price:2500, station:'KITCHEN', mods:[]},
+  {id:'s2', cat:'Sides', name:'Fried Plantain', desc:'Sweet ripe plantain', price:2000, station:'KITCHEN', mods:[]},
+  {id:'s3', cat:'Sides', name:'Side of Jollof', desc:'Small portion', price:3500, station:'KITCHEN', mods:[]},
+  {id:'s4', cat:'Sides', name:'Extra Shito', desc:'House black pepper sauce', price:1000, station:'KITCHEN', mods:[]},
+
+  {id:'d1', cat:'Drinks', name:'Club Beer', desc:'625ml, chilled', price:2500, station:'BAR', mods:[]},
+  {id:'d2', cat:'Drinks', name:'Star Beer', desc:'625ml, chilled', price:2500, station:'BAR', mods:[]},
+  {id:'d3', cat:'Drinks', name:'Guinness Smooth', desc:'330ml bottle', price:3000, station:'BAR', mods:[]},
+  {id:'d4', cat:'Drinks', name:'Malta Guinness', desc:'330ml, non-alcoholic', price:2000, station:'BAR', mods:[]},
+  {id:'d5', cat:'Drinks', name:'Alvaro', desc:'Pear or pineapple', price:2200, station:'BAR', mods:[]},
+  {id:'d6', cat:'Drinks', name:'Sobolo', desc:'Fresh hibiscus, served cold', price:1500, station:'BAR', mods:[]},
+  {id:'d7', cat:'Drinks', name:'Bottled Water', desc:'750ml', price:800, station:'BAR', mods:[]},
+  {id:'d8', cat:'Drinks', name:'Coconut Juice', desc:'Fresh, served in the shell', price:2000, station:'BAR', mods:[]},
+];
+
+const MODGROUPS = {
+  spice:  {label:'Pepper level', type:'one',  opts:[{n:'No pepper',p:0},{n:'Mild',p:0},{n:'Hot',p:0},{n:'Extra hot',p:0}], def:'Mild'},
+  done:   {label:'How well done', type:'one', opts:[{n:'Medium',p:0},{n:'Well done',p:0}], def:'Medium'},
+  extras: {label:'Add extras',    type:'many',opts:[{n:'Extra plantain',p:800},{n:'Extra shito',p:500},{n:'Extra soup',p:1000}]},
+};
+
+const CATS = ['Mains','Grill','Sides','Drinks'];
+const DEMO_START = new Date(2026,8,14,19,42,0);
+let clockOffset = 0;
+
+const state = {
+  view:'customer',
+  cat:'Mains',
+  soldOut:new Set(['g4']),
+  draft:{table:7, items:[
+    {uid:'x1', id:'m3', qty:1, mods:['Hot']},
+    {uid:'x2', id:'d1', qty:2, mods:[]},
+  ]},
+  orders:[
+    {no:1046, table:3,  status:'PREPARING', placed:-11*60, ack:-10*60, items:[
+      {id:'m1',qty:2,mods:['Mild','Extra plantain']},{id:'m6',qty:1,mods:['No pepper']},{id:'d6',qty:3,mods:[]}]},
+    {no:1047, table:9,  status:'SUBMITTED', placed:-3*60, items:[
+      {id:'g1',qty:1,mods:['Hot','Well done']},{id:'s1',qty:1,mods:[]},{id:'d1',qty:2,mods:[]}]},
+    {no:1048, table:12, status:'READY', placed:-19*60, ack:-18*60, ready:-40, items:[
+      {id:'m4',qty:2,mods:['Extra hot']},{id:'d4',qty:2,mods:[]}]},
+    {no:1045, table:5,  status:'SERVED', placed:-34*60, ack:-33*60, ready:-22*60, served:-20*60, items:[
+      {id:'m5',qty:2,mods:['Mild']},{id:'g3',qty:1,mods:['Hot']},{id:'d2',qty:2,mods:[]},{id:'s2',qty:1,mods:[]}]},
+    {no:1044, table:1,  status:'SERVED', placed:-46*60, ack:-45*60, ready:-36*60, served:-33*60, items:[
+      {id:'m2',qty:3,mods:['Hot','Extra shito']},{id:'d5',qty:3,mods:[]}]},
+  ],
+  selectedBill:1045,
+  payMethod:null,
+  tendered:'',
+  sheet:null,
+  pin:null,
+  events:[],
+};
+
+/* seed the audit trail so the log is populated at rest */
+[
+  [-46*60,'WAITER · Kofi','ORDER_OPENED','Table 1 — order #1044',0],
+  [-46*60+8,'WAITER · Kofi','ORDER_SUBMITTED','#1044 · 6 items · GH₵ 246.00',0],
+  [-45*60,'KITCHEN · Yaw','KITCHEN_ACKNOWLEDGED','#1044 picked up',0],
+  [-38*60,'MANAGER · Ama','ITEM_86ED','Grilled Guinea Fowl marked finished',0],
+  [-36*60,'KITCHEN · Yaw','ORDER_READY','#1044 ready · 9m 04s',0],
+  [-34*60,'WAITER · Efua','ORDER_SUBMITTED','#1045 · Table 5 · GH₵ 259.00',0],
+  [-33*60,'WAITER · Kofi','ORDER_SERVED','#1044 delivered to Table 1',0],
+  [-29*60,'MANAGER · Ama','DISCOUNT_APPLIED','#1041 · 10% staff meal · auth Ama',1],
+  [-24*60,'CASHIER · Ama','PAYMENT_RECORDED','#1041 · MTN MoMo · GH₵ 118.80',0],
+  [-22*60,'KITCHEN · Yaw','ORDER_READY','#1045 ready · 11m 12s',0],
+  [-21*60,'MANAGER · Ama','ORDER_VOIDED','#1042 voided after cooking · "wrong table" · auth Ama',1],
+  [-20*60,'WAITER · Efua','ORDER_SERVED','#1045 delivered to Table 5',0],
+  [-19*60,'WAITER · Kofi','ORDER_SUBMITTED','#1048 · Table 12 · GH₵ 264.00',0],
+  [-18*60,'KITCHEN · Yaw','KITCHEN_ACKNOWLEDGED','#1048 picked up',0],
+  [-14*60,'MANAGER · Ama','ORDER_REOPENED','#1039 reopened after close · "add drinks"',1],
+  [-11*60,'WAITER · Efua','ORDER_SUBMITTED','#1046 · Table 3 · GH₵ 250.20',0],
+  [-10*60,'KITCHEN · Yaw','KITCHEN_ACKNOWLEDGED','#1046 picked up',0],
+  [-3*60,'WAITER · Kofi','ORDER_SUBMITTED','#1047 · Table 9 · GH₵ 216.00',0],
+  [-40,'KITCHEN · Yaw','ORDER_READY','#1048 ready · 17m 20s',0],
+].forEach(([s,a,t,d,f])=>state.events.push({s,actor:a,type:t,detail:d,flag:f}));
+
+/* ============================ HELPERS ============================ */
+const item = id => MENU.find(m=>m.id===id);
+const gh = p => 'GH₵ ' + (p/100).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,',');
+const now = () => new Date(DEMO_START.getTime() + clockOffset*1000);
+const hhmm = d => String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+function modPrice(mods){
+  let extra = 0;
+  MODGROUPS.extras.opts.forEach(o => { if (mods.includes(o.n)) extra += o.p; });
+  return extra;
+}
+function lineTotal(l){ return (item(l.id).price + modPrice(l.mods)) * l.qty; }
+function subtotalOf(items){ return items.reduce((s,l)=>s+lineTotal(l),0); }
+
+/* Ghana 2026 (Act 1151): NHIL, GETFund, Tourism Levy and VAT each on the same net value. */
+const RATES = [
+  {code:'NHIL',    label:'NHIL',          bp:250,  gra:'LEVY_A'},
+  {code:'GETFUND', label:'GETFund Levy',  bp:250,  gra:'LEVY_B'},
+  {code:'TOURISM', label:'Tourism Levy',  bp:100,  gra:'LEVY_D'},
+  {code:'VAT',     label:'VAT',           bp:1500, gra:'TAX_B'},
+];
+function taxBreakdown(sub){
+  const lines = RATES.map(r => ({...r, amount: Math.round(sub * r.bp / 10000)}));
+  const tax = lines.reduce((s,l)=>s+l.amount,0);
+  return {lines, tax, total: sub + tax};
+}
+function billOf(o){ const sub = subtotalOf(o.items); const b = taxBreakdown(sub); return {sub, ...b}; }
+
+function elapsed(o){
+  const from = o.status==='SUBMITTED' ? o.placed : (o.ack ?? o.placed);
+  return Math.max(0, clockOffset - from);
+}
+function mmss(sec){
+  const m = Math.floor(sec/60), s = Math.floor(sec%60);
+  return String(m).padStart(2,'0')+':'+String(s).padStart(2,'0');
+}
+function urgency(sec){ return sec >= 900 ? 'late' : sec >= 600 ? 'warn' : 'ok'; }
+
+function log(actor, type, detail, flag=0){
+  state.events.push({s:clockOffset, actor, type, detail, flag});
+}
+
+/* ============================ RENDER ============================ */
+const screen = document.getElementById('screen');
+
+function render(){
+  document.querySelectorAll('.station').forEach(b =>
+    b.setAttribute('aria-selected', String(b.dataset.view === state.view)));
+  screen.innerHTML = ({customer:viewCustomer, kitchen:viewKitchen, cashier:viewCashier, owner:viewOwner})[state.view]();
+  renderModal();
+}
+
+/* ---------- customer ---------- */
+function viewCustomer(){
+  const d = state.draft;
+  const sub = subtotalOf(d.items), bk = taxBreakdown(sub);
+
+  const dishes = MENU.filter(m => m.cat === state.cat).map(m => {
+    const out = state.soldOut.has(m.id);
+    return `<button class="dish${out?' out':''}" data-add="${m.id}"${out?' disabled':''}>
+      <span class="nm">${esc(m.name)}</span>
+      <span class="ds">${out ? 'Finished for today' : esc(m.desc)}</span>
+      <span class="pr">${gh(m.price)}</span>
+    </button>`;
+  }).join('');
+
+  const lines = d.items.length ? d.items.map(l => {
+    const m = item(l.id);
+    return `<div class="ln">
+      <span class="nm">${esc(m.name)}</span>
+      <span class="amt">${gh(lineTotal(l))}</span>
+      ${l.mods.length ? `<span class="mods">${esc(l.mods.join(' · '))}</span>` : ''}
+      <span class="qty">
+        <button class="qbtn" data-q="-1" data-uid="${l.uid}" aria-label="Reduce ${esc(m.name)}">−</button>
+        <span class="qn">${l.qty}</span>
+        <button class="qbtn" data-q="1" data-uid="${l.uid}" aria-label="Add ${esc(m.name)}">+</button>
+      </span>
+    </div>`;
+  }).join('') : '<p class="empty">Tap a dish to start your order.</p>';
+
+  return `
+  <div class="screen-head">
+    <div><div class="screen-title">Guest ordering — handed over by your server</div>
+      <div class="screen-sub">Locked to this table only. Cannot see other bills, staff functions or totals.</div></div>
+    <span class="chip c-ok">Table ${d.table} · open</span>
+  </div>
+  <div class="pad">
+    <div class="hint"><span>→</span><span>Add a dish, then <b>Send to kitchen</b>. Switch to <b>Order Display</b> and watch it arrive.</span></div>
+    <div class="cust">
+      <div>
+        <div class="cats">${CATS.map(c =>
+          `<button class="cat" data-cat="${c}" aria-pressed="${c===state.cat}">${c}</button>`).join('')}</div>
+        <div class="grid">${dishes}</div>
+      </div>
+      <aside class="cart">
+        <div class="cart-h"><span class="tbl">Table ${d.table}</span>
+          <span class="eyebrow">${d.items.reduce((s,l)=>s+l.qty,0)} items</span></div>
+        <div class="cart-lines">${lines}</div>
+        <div class="totals">
+          <div class="trow sub"><span>Subtotal</span><span class="num">${gh(sub)}</span></div>
+          <div class="taxnote">Taxes &amp; levies</div>
+          ${bk.lines.map(l => `<div class="trow"><span>${l.label} ${(l.bp/100).toFixed(l.bp%100?2:1)}%</span><span class="num">${gh(l.amount)}</span></div>`).join('')}
+          <div class="trow grand"><span>Total</span><span class="num">${gh(bk.total)}</span></div>
+        </div>
+        <div class="cart-foot">
+          <button class="btn btn-primary btn-lg btn-block" id="send"${d.items.length?'':' disabled'}>Send to kitchen</button>
+        </div>
+      </aside>
+    </div>
+  </div>`;
+}
+
+/* ---------- kitchen ---------- */
+function viewKitchen(){
+  const cols = [
+    {key:'new',   title:'New',       match:o => o.status==='SUBMITTED',  action:'Start cooking',  next:'PREPARING'},
+    {key:'prep',  title:'Preparing', match:o => o.status==='PREPARING',  action:'Mark ready',     next:'READY'},
+    {key:'ready', title:'Ready',     match:o => o.status==='READY',      action:'Picked up',      next:'SERVED'},
+  ];
+
+  const soldOutNames = [...state.soldOut].map(id => item(id).name);
+
+  const colsHtml = cols.map(c => {
+    const list = state.orders.filter(c.match).sort((a,b)=>a.placed-b.placed);
+    const tickets = list.length ? list.map(o => {
+      const sec = elapsed(o), lvl = urgency(sec);
+      return `<article class="ticket" data-col="${c.key}" data-late="${lvl==='late'?1:0}">
+        <div class="tkt-h">
+          <div><div class="tno">#${o.no} · ${hhmm(new Date(DEMO_START.getTime()+o.placed*1000))}</div>
+            <div class="tbl">Table ${o.table}</div></div>
+          <div class="timer" data-lvl="${lvl}">${mmss(sec)}</div>
+        </div>
+        <div class="tkt-items">${o.items.map(l => {
+          const m = item(l.id);
+          return `<div class="ti"><span class="q">${l.qty}×</span>
+            <span class="n">${esc(m.name)}${l.mods.length?`<span class="m">${esc(l.mods.join(' · '))}</span>`:''}</span>
+            <span class="st">${m.station}</span></div>`;
+        }).join('')}</div>
+        <div class="tkt-f">
+          <button class="btn btn-primary btn-block" data-advance="${o.no}" data-next="${c.next}">${c.action}</button>
+        </div>
+      </article>`;
+    }).join('') : `<div class="kempty">Nothing here</div>`;
+
+    return `<section class="kcol" data-col="${c.key}">
+      <div class="kcol-h"><span class="t">${c.title}</span><span class="n">${list.length}</span></div>
+      ${tickets}
+    </section>`;
+  }).join('');
+
+  return `
+  <div class="screen-head">
+    <div><div class="screen-title">Kitchen order display</div>
+      <div class="screen-sub">Tickets turn amber at 10 minutes and red at 15. Bar and grill items are tagged by station.</div></div>
+    <button class="btn" id="mark86">Mark an item finished</button>
+  </div>
+  <div class="kds">
+    <div class="sold-out">
+      <span class="lbl">Finished today</span>
+      ${soldOutNames.length
+        ? soldOutNames.map(n=>`<span class="chip c-bad">${esc(n)}</span>`).join('')
+        : '<span class="chip c-mute">Nothing marked</span>'}
+      <span style="font-size:12px;color:var(--ink-3);margin-left:auto">Hidden from guest tablets instantly</span>
+    </div>
+    <div class="kcols">${colsHtml}</div>
+  </div>`;
+}
+
+/* ---------- cashier ---------- */
+function viewCashier(){
+  const open = state.orders.filter(o => !o.paid).sort((a,b)=>a.table-b.table);
+  const sel = state.orders.find(o => o.no === state.selectedBill) || open[0];
+
+  const chipFor = o => o.paid ? '<span class="chip c-mute">Paid</span>'
+    : o.status==='SERVED' ? '<span class="chip c-ok">Ready to pay</span>'
+    : o.status==='READY'  ? '<span class="chip c-ok">Food ready</span>'
+    : o.status==='PREPARING' ? '<span class="chip c-warn">Cooking</span>'
+    : '<span class="chip c-queue">Sent</span>';
+
+  const bills = state.orders.sort((a,b)=>a.table-b.table).map(o => {
+    const b = billOf(o);
+    return `<button class="bill" data-bill="${o.no}" aria-pressed="${sel && o.no===sel.no}">
+      <span class="tbl">Table ${o.table}</span>
+      <span class="amt">${gh(b.total)}</span>
+      <span class="meta">#${o.no} · ${o.items.reduce((s,l)=>s+l.qty,0)} items</span>
+      <span>${chipFor(o)}</span>
+    </button>`;
+  }).join('');
+
+  if(!sel) return `<div class="pad"><p class="empty">No open bills.</p></div>`;
+
+  const b = billOf(sel);
+  const canPay = sel.status === 'SERVED' || sel.status === 'READY';
+  const tendered = Math.round(parseFloat(state.tendered || '0') * 100);
+  const change = tendered - b.total;
+
+  const methods = [
+    {k:'CASH', a:'Cash', b:'Notes & coins'},
+    {k:'MOMO_MTN', a:'MTN MoMo', b:'Reference required'},
+    {k:'MOMO_TELECEL', a:'Telecel Cash', b:'Reference required'},
+    {k:'CARD', a:'Card', b:'Visa / Mastercard'},
+  ];
+
+  const payUI = sel.paid ? receiptHtml(sel, b) : `
+    <div>
+      <div class="eyebrow">Take payment</div>
+      <div class="methods">${methods.map(m =>
+        `<button class="method" data-method="${m.k}" aria-pressed="${state.payMethod===m.k}">
+          <span class="m1">${m.a}</span><span class="m2">${m.b}</span></button>`).join('')}</div>
+      ${state.payMethod==='CASH' ? `
+        <div class="field"><label for="tendered">Cash received</label>
+          <input id="tendered" type="text" inputmode="decimal" value="${esc(state.tendered)}" placeholder="0.00"></div>
+        <div class="quickcash">
+          ${[50,100,200,500].map(v=>`<button data-cash="${v}">${v}</button>`).join('')}
+          <button data-cash="${(b.total/100).toFixed(2)}">Exact</button>
+        </div>
+        <div class="change"><span>Change due</span>
+          <span class="v">${change >= 0 ? gh(change) : '—'}</span></div>
+      ` : state.payMethod && state.payMethod!=='CARD' ? `
+        <div class="field"><label for="ref">Transaction reference</label>
+          <input id="ref" type="text" value="MP26091.4832${sel.no}" readonly></div>
+      ` : ''}
+      <button class="btn btn-primary btn-lg btn-block" id="pay"
+        ${(!state.payMethod || !canPay || (state.payMethod==='CASH' && change<0)) ? 'disabled' : ''}>
+        Mark paid · ${gh(b.total)}</button>
+      ${!canPay ? `<p style="font-size:12px;color:var(--ink-3);margin:9px 0 0">
+        Food is still ${sel.status.toLowerCase()}. Bills close after the food is served.</p>` : ''}
+      <button class="btn btn-danger btn-block" id="void" style="margin-top:9px">Void this order</button>
+      <p style="font-size:11.5px;color:var(--ink-3);margin:8px 0 0">
+        Voiding after the kitchen has started needs a manager PIN and a reason. Both are logged against the bill.</p>
+    </div>`;
+
+  return `
+  <div class="screen-head">
+    <div><div class="screen-title">Cashier — open bills</div>
+      <div class="screen-sub">Shift 2 · Ama Mensah · opened 17:00 · float GH₵ 200.00</div></div>
+    <span class="chip c-mute">${state.orders.filter(o=>!o.paid).length} bills open</span>
+  </div>
+  <div class="pad">
+    <div class="cash">
+      <div class="bills">${bills}</div>
+      <div class="paypanel">
+        <div class="pp-h">
+          <div><div class="screen-title">Table ${sel.table} · Order #${sel.no}</div>
+            <div class="screen-sub">${sel.items.reduce((s,l)=>s+l.qty,0)} items · opened ${hhmm(new Date(DEMO_START.getTime()+sel.placed*1000))}</div></div>
+          ${chipFor(sel)}
+        </div>
+        <div class="pp-b">
+          ${payUI}
+          <div>${sel.paid ? '' : billPreview(sel, b)}</div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function billPreview(o, b){
+  return `<div class="receipt">
+    <div class="rc"><div class="rname">RENZY</div>
+      <div>Shiashi · Accra</div><div>TIN C0012345678</div></div>
+    <hr>
+    <div class="rline"><span>Table ${o.table}</span><span>#${o.no}</span></div>
+    <hr>
+    ${o.items.map(l => {
+      const m = item(l.id);
+      return `<div class="rline"><span>${l.qty} × ${esc(m.name)}</span><span>${gh(lineTotal(l))}</span></div>
+        ${l.mods.length?`<div class="rsub">${esc(l.mods.join(', '))}</div>`:''}`;
+    }).join('')}
+    <hr>
+    <div class="rline b"><span>Subtotal</span><span>${gh(b.sub)}</span></div>
+    ${b.lines.map(l=>`<div class="rline"><span>${l.label} ${(l.bp/100).toFixed(l.bp%100?2:1)}% <span style="opacity:.6">${l.gra}</span></span><span>${gh(l.amount)}</span></div>`).join('')}
+    <hr>
+    <div class="rline b"><span>TOTAL DUE</span><span>${gh(b.total)}</span></div>
+  </div>`;
+}
+
+function fakeQR(seedStr){
+  const N = 25, cell = 5, pad = 6, size = N*cell + pad*2;
+  let h = 2166136261;
+  for (let i=0;i<seedStr.length;i++){ h ^= seedStr.charCodeAt(i); h = Math.imul(h, 16777619); }
+  const rnd = () => { h ^= h<<13; h ^= h>>>17; h ^= h<<5; return ((h>>>0)%1000)/1000; };
+  const finder = (x,y) => (x<7&&y<7)||(x>=N-7&&y<7)||(x<7&&y>=N-7);
+  let cells = '';
+  for(let y=0;y<N;y++) for(let x=0;x<N;x++){
+    if(finder(x,y)) continue;
+    if(rnd() > .52) cells += `<rect x="${pad+x*cell}" y="${pad+y*cell}" width="${cell}" height="${cell}"/>`;
+  }
+  const eye = (ox,oy) => `
+    <rect x="${pad+ox*cell}" y="${pad+oy*cell}" width="${7*cell}" height="${7*cell}"/>
+    <rect x="${pad+(ox+1)*cell}" y="${pad+(oy+1)*cell}" width="${5*cell}" height="${5*cell}" fill="var(--surface-2)"/>
+    <rect x="${pad+(ox+2)*cell}" y="${pad+(oy+2)*cell}" width="${3*cell}" height="${3*cell}"/>`;
+  return `<svg viewBox="0 0 ${size} ${size}" width="112" height="112" role="img"
+    aria-label="E-VAT verification code"><rect width="${size}" height="${size}" fill="var(--surface-2)"/>
+    <g fill="var(--ink)">${cells}${eye(0,0)}${eye(N-7,0)}${eye(0,N-7)}</g></svg>`;
+}
+
+function receiptHtml(o, b){
+  const label = {CASH:'Cash', MOMO_MTN:'MTN MoMo', MOMO_TELECEL:'Telecel Cash', CARD:'Card'}[o.paid.method];
+  return `<div>
+    <div class="eyebrow" style="margin-bottom:9px">Cleared receipt</div>
+    <div class="receipt">
+      <div class="rc"><div class="rname">RENZY</div>
+        <div>Shiashi · Accra · 024 000 0000</div><div>TIN C0012345678</div></div>
+      <hr>
+      <div class="rline"><span>Table ${o.table}</span><span>#${o.no}</span></div>
+      <div class="rline"><span>${hhmm(new Date(DEMO_START.getTime()+o.paid.at*1000))} · 14/09/2026</span><span>Ama M.</span></div>
+      <hr>
+      ${o.items.map(l => {
+        const m = item(l.id);
+        return `<div class="rline"><span>${l.qty} × ${esc(m.name)}</span><span>${gh(lineTotal(l))}</span></div>
+          ${l.mods.length?`<div class="rsub">${esc(l.mods.join(', '))}</div>`:''}`;
+      }).join('')}
+      <hr>
+      <div class="rline b"><span>Subtotal</span><span>${gh(b.sub)}</span></div>
+      ${b.lines.map(l=>`<div class="rline"><span>${l.label} ${(l.bp/100).toFixed(l.bp%100?2:1)}% <span style="opacity:.6">${l.gra}</span></span><span>${gh(l.amount)}</span></div>`).join('')}
+      <hr>
+      <div class="rline b"><span>TOTAL</span><span>${gh(b.total)}</span></div>
+      <div class="rline"><span>Paid — ${label}</span><span>${gh(b.total)}</span></div>
+      ${o.paid.method==='CASH' && o.paid.change>0 ? `<div class="rline"><span>Change</span><span>${gh(o.paid.change)}</span></div>`:''}
+      ${o.paid.ref ? `<div class="rline"><span>Ref</span><span>${esc(o.paid.ref)}</span></div>`:''}
+      <div class="evat">
+        <div class="h">GRA E-VAT · cleared</div>
+        <div class="qrbox">${fakeQR('RENZY'+o.no+b.total)}</div>
+        <div class="kv"><span>IRN</span><span>GH26-0914-${o.no}-8841</span></div>
+        <div class="kv"><span>Signature</span><span>7F2A·9C41·B0D6</span></div>
+        <div class="kv"><span>Verified</span><span>${hhmm(new Date(DEMO_START.getTime()+o.paid.at*1000))} · 1.2s</span></div>
+      </div>
+      <div class="rc" style="margin-top:9px">Medaase — thank you</div>
+    </div>
+  </div>`;
+}
+
+/* ---------- owner ---------- */
+const HOURLY = [
+  {h:'12:00', v:42000},{h:'13:00', v:118500},{h:'14:00', v:96000},{h:'15:00', v:31000},
+  {h:'16:00', v:22500},{h:'17:00', v:48000},{h:'18:00', v:134000},{h:'19:00', v:87000, partial:true},
+];
+const PAYMIX = [
+  {k:'Cash', v:237390},{k:'MTN MoMo', v:220020},{k:'Telecel Cash', v:69480},{k:'Card', v:52110},
+];
+const TOPS = [
+  {n:'Banku with Grilled Tilapia', c:14, v:168000},
+  {n:'Jollof Rice with Grilled Chicken', c:22, v:165000},
+  {n:'Club Beer', c:38, v:95000},
+  {n:'Waakye Special', c:12, v:72000},
+  {n:'Whole Grilled Tilapia', c:5, v:65000},
+];
+
+function hourlyChart(){
+  const W=560, H=210, ml=54, mr=12, mt=14, mb=32;
+  const max = 200000, iw = W-ml-mr, ih = H-mt-mb;
+  const bw = iw/HOURLY.length, gap = 9;
+  const y = v => mt + ih - (v/max)*ih;
+
+  const ticks = [0,50000,100000,150000,200000].map(t =>
+    `<line x1="${ml}" y1="${y(t)}" x2="${W-mr}" y2="${y(t)}" stroke="var(--line)" stroke-width="1"/>
+     <text x="${ml-9}" y="${y(t)+4}" text-anchor="end" font-size="10.5" font-family="var(--mono)"
+       fill="var(--ink-3)">${t?(t/100000).toFixed(t%100000?1:0)+'k':'0'}</text>`).join('');
+
+  const bars = HOURLY.map((d,i) => {
+    const x = ml + i*bw + gap/2, w = bw-gap, top = y(d.v), h = mt+ih-top, r = Math.min(4, w/2, h);
+    const path = `M${x},${mt+ih} L${x},${top+r} Q${x},${top} ${x+r},${top} L${x+w-r},${top} Q${x+w},${top} ${x+w},${top+r} L${x+w},${mt+ih} Z`;
+    return `<path d="${path}" fill="var(--accent)"${d.partial?' opacity="0.42"':''}>
+        <title>${d.h} — ${gh(d.v)}${d.partial?' (hour in progress)':''}</title></path>
+      <text x="${x+w/2}" y="${H-12}" text-anchor="middle" font-size="10" font-family="var(--mono)"
+        fill="var(--ink-3)">${d.h.slice(0,2)}</text>`;
+  }).join('');
+
+  const peak = HOURLY.reduce((a,b)=>b.v>a.v?b:a);
+  const pi = HOURLY.indexOf(peak), px = ml + pi*bw + bw/2;
+  const peakLabel = `<text x="${px}" y="${y(peak.v)-7}" text-anchor="middle" font-size="11"
+    font-family="var(--mono)" font-weight="600" fill="var(--ink)">${gh(peak.v)}</text>`;
+
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" style="min-width:480px;display:block"
+    role="img" aria-label="Sales by hour, peaking at 19:00">
+    <line x1="${ml}" y1="${mt+ih}" x2="${W-mr}" y2="${mt+ih}" stroke="var(--line-strong)" stroke-width="1"/>
+    ${ticks}${bars}${peakLabel}</svg>`;
+}
+
+function viewOwner(){
+  const paidToday = state.orders.filter(o=>o.paid);
+  const liveSales = paidToday.reduce((s,o)=>s+billOf(o).total,0);
+  const baseSales = 579000, sales = baseSales + liveSales;
+  const covers = 47 + paidToday.length;
+  const taxCollected = Math.round(sales - sales/1.20);
+
+  const mixMax = Math.max(...PAYMIX.map(p=>p.v));
+  const topMax = Math.max(...TOPS.map(t=>t.v));
+
+  const evs = [...state.events].sort((a,b)=>b.s-a.s).slice(0,40).map(e =>
+    `<div class="ev" data-flag="${e.flag}">
+      <span class="t">${hhmm(new Date(DEMO_START.getTime()+e.s*1000))}</span>
+      <span class="a">${esc(e.actor)}</span>
+      <span class="d"><b>${esc(e.type)}</b> — ${esc(e.detail)}</span>
+    </div>`).join('');
+
+  return `
+  <div class="screen-head">
+    <div><div class="screen-title">Back office — Monday 14 September 2026</div>
+      <div class="screen-sub">Live to 19:42 · service still running</div></div>
+    <span class="chip c-mute">Owner access</span>
+  </div>
+  <div class="pad"><div class="own">
+
+    <section>
+      <div class="sec-h"><h3>Where money can leak</h3>
+        <p>Checked first, every day. Everything here needed a manager PIN and left a name.</p></div>
+      <div class="variance">
+        <div class="vcell flag"><span class="vt"><span class="sev bad"></span>Cash variance · Shift 2</span>
+          <span class="vv">−GH₵ 45.00</span><span class="vs">Ama Mensah · counted GH₵ 2,418 vs GH₵ 2,463 expected</span></div>
+        <div class="vcell flag"><span class="vt"><span class="sev bad"></span>Voids after cooking started</span>
+          <span class="vv">2</span><span class="vs">GH₵ 195.00 · both authorised by Ama</span></div>
+        <div class="vcell"><span class="vt"><span class="sev warn"></span>Discounts &amp; comps</span>
+          <span class="vv">GH₵ 84.00</span><span class="vs">3 bills · staff meals</span></div>
+        <div class="vcell"><span class="vt"><span class="sev warn"></span>Bills reopened after closing</span>
+          <span class="vv">1</span><span class="vs">#1039 · "add drinks" · 19:28</span></div>
+      </div>
+    </section>
+
+    <section>
+      <div class="sec-h"><h3>Today so far</h3></div>
+      <div class="tiles">
+        <div class="tile"><span class="tl">Sales</span><span class="tv">${gh(sales)}</span>
+          <span class="tm">incl. all taxes &amp; levies</span></div>
+        <div class="tile"><span class="tl">Covers</span><span class="tv">${covers}</span>
+          <span class="tm">bills closed</span></div>
+        <div class="tile"><span class="tl">Average bill</span><span class="tv">${gh(Math.round(sales/covers))}</span>
+          <span class="tm">vs GH₵ 118.40 last Monday</span></div>
+        <div class="tile"><span class="tl">Tax collected</span><span class="tv">${gh(taxCollected)}</span>
+          <span class="tm">due to GRA &amp; GTA</span></div>
+        <div class="tile"><span class="tl">Open bills</span><span class="tv">${state.orders.filter(o=>!o.paid).length}</span>
+          <span class="tm">on the floor now</span></div>
+      </div>
+    </section>
+
+    <div class="two">
+      <div class="panel">
+        <div class="sec-h"><h3>Sales by hour</h3><p>Thousands of cedis · lunch and dinner peaks</p></div>
+        <div class="chartwrap">${hourlyChart()}</div>
+        <p style="font-size:11.5px;color:var(--ink-3);margin:6px 0 0">19:00 shown faded — hour still in progress.</p>
+      </div>
+      <div class="stack">
+        <div class="panel">
+          <div class="sec-h"><h3>How people paid</h3><p>Closed bills</p></div>
+          <div class="barlist">${PAYMIX.map(p => `
+            <div class="brow"><span class="bl">${p.k}</span><span class="bv">${gh(p.v)}</span>
+              <span class="btrack"><span class="bfill" style="width:${(p.v/mixMax*100).toFixed(1)}%"></span></span>
+            </div>`).join('')}</div>
+        </div>
+        <div class="panel">
+          <div class="sec-h"><h3>Stations</h3><p>Order to ready</p></div>
+          <div class="tops">
+            <div class="top"><span>Kitchen</span><span class="c">62 tickets</span><span class="v">09:41</span></div>
+            <div class="top"><span>Grill</span><span class="c">24 tickets</span><span class="v">14:08</span></div>
+            <div class="top"><span>Bar</span><span class="c">88 tickets</span><span class="v">02:12</span></div>
+          </div>
+          <p style="font-size:12px;color:var(--ink-3);margin:11px 0 0">
+            Grill is the bottleneck on Mondays. Two tickets passed 15 minutes today.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="sec-h"><h3>Best sellers</h3><p>By value, all closed bills today</p></div>
+      <div class="barlist">${TOPS.map(t => `
+        <div class="brow"><span class="bl">${esc(t.n)} <span class="c">· ${t.c} sold</span></span>
+          <span class="bv">${gh(t.v)}</span>
+          <span class="btrack"><span class="bfill" style="width:${(t.v/topMax*100).toFixed(1)}%"></span></span>
+        </div>`).join('')}</div>
+    </div>
+
+    <section>
+      <div class="sec-h"><h3>Every action, in order</h3>
+        <p>Append-only. Nothing here can be edited or deleted — flagged rows are the ones to read.</p></div>
+      <div class="log">${evs}</div>
+    </section>
+
+  </div></div>`;
+}
+
+/* ---------- modal ---------- */
+function renderModal(){
+  const el = document.getElementById('modal');
+  if(state.sheet) return void (el.innerHTML = sheetHtml());
+  if(state.pin)   return void (el.innerHTML = pinHtml());
+  el.innerHTML = '';
+}
+
+function sheetHtml(){
+  const s = state.sheet, m = item(s.id);
+  const groups = m.mods.map(k => {
+    const g = MODGROUPS[k];
+    return `<div class="optgrp"><div class="eyebrow">${g.label}</div>
+      ${g.opts.map(o => `<label class="opt">
+        <input type="${g.type==='one'?'radio':'checkbox'}" name="g_${k}" value="${esc(o.n)}"
+          data-grp="${k}" ${s.mods.includes(o.n)?'checked':''}>
+        <span>${esc(o.n)}</span>${o.p?`<span class="plus">+${gh(o.p)}</span>`:''}
+      </label>`).join('')}</div>`;
+  }).join('');
+
+  return `<div class="scrim" data-close="1"><div class="sheet" role="dialog" aria-label="${esc(m.name)}">
+    <div class="sheet-h"><h3 style="font-size:17px">${esc(m.name)}</h3>
+      <p style="margin:3px 0 0;font-size:13px;color:var(--ink-3)">${esc(m.desc)} · ${gh(m.price)}</p></div>
+    <div class="sheet-b">${groups}
+      <div class="optgrp"><div class="eyebrow">Quantity</div>
+        <div class="qty" style="margin-top:7px">
+          <button class="qbtn" data-sq="-1">−</button><span class="qn">${s.qty}</span>
+          <button class="qbtn" data-sq="1">+</button></div></div>
+    </div>
+    <div class="sheet-f">
+      <button class="btn" data-close="1" style="flex:1">Cancel</button>
+      <button class="btn btn-primary" id="sheet-add" style="flex:2">Add ${gh((m.price+modPrice(s.mods))*s.qty)}</button>
+    </div>
+  </div></div>`;
+}
+
+function pinHtml(){
+  const p = state.pin;
+  return `<div class="scrim" data-close="1"><div class="sheet" role="dialog" aria-label="Manager authorisation">
+    <div class="sheet-h"><h3 style="font-size:17px">Manager authorisation</h3>
+      <p style="margin:3px 0 0;font-size:13px;color:var(--ink-3)">
+        Order #${p.no} is already with the kitchen. Voiding it needs a manager PIN and a reason.</p></div>
+    <div class="sheet-b">
+      <div class="field"><label for="pin">Manager PIN</label>
+        <input id="pin" type="password" inputmode="numeric" maxlength="6" value="${esc(p.value)}" placeholder="••••"></div>
+      <div class="optgrp"><div class="eyebrow">Reason</div>
+        ${['Guest changed mind','Wrong table','Kitchen error','Item finished'].map(r =>
+          `<label class="opt"><input type="radio" name="reason" value="${r}" ${p.reason===r?'checked':''}>
+            <span>${r}</span></label>`).join('')}</div>
+      ${p.error?`<p style="color:var(--danger);font-size:13px;margin:0">${esc(p.error)}</p>`:''}
+      <p style="font-size:11.5px;color:var(--ink-3);margin:10px 0 0">Demo PIN: 1234</p>
+    </div>
+    <div class="sheet-f">
+      <button class="btn" data-close="1" style="flex:1">Cancel</button>
+      <button class="btn btn-danger" id="pin-go" style="flex:2">Void order</button>
+    </div>
+  </div></div>`;
+}
+
+/* ============================ EVENTS ============================ */
+document.addEventListener('click', e => {
+  const t = e.target.closest('[data-view],[data-cat],[data-add],[data-q],[data-bill],[data-method],[data-cash],[data-advance],[data-close],[data-sq],#send,#pay,#void,#pin-go,#sheet-add,#mark86');
+  if(!t) return;
+
+  if(t.dataset.view){ state.view = t.dataset.view; return render(); }
+  if(t.dataset.cat){ state.cat = t.dataset.cat; return render(); }
+
+  /* customer */
+  if(t.dataset.add){
+    const m = item(t.dataset.add);
+    if(m.mods.length){
+      const def = m.mods.map(k => MODGROUPS[k].def).filter(Boolean);
+      state.sheet = {id:m.id, qty:1, mods:def};
+      return renderModal();
+    }
+    addToDraft(m.id, 1, []); return render();
+  }
+  if(t.dataset.sq){
+    state.sheet.qty = Math.max(1, state.sheet.qty + Number(t.dataset.sq));
+    return renderModal();
+  }
+  if(t.id === 'sheet-add'){
+    addToDraft(state.sheet.id, state.sheet.qty, state.sheet.mods);
+    state.sheet = null; return render();
+  }
+  if(t.dataset.q){
+    const l = state.draft.items.find(x => x.uid === t.dataset.uid);
+    l.qty += Number(t.dataset.q);
+    if(l.qty <= 0) state.draft.items = state.draft.items.filter(x => x.uid !== l.uid);
+    return render();
+  }
+  if(t.id === 'send'){
+    const no = Math.max(...state.orders.map(o=>o.no)) + 1;
+    const items = state.draft.items.map(l => ({id:l.id, qty:l.qty, mods:l.mods}));
+    const total = taxBreakdown(subtotalOf(items)).total;
+    state.orders.push({no, table:state.draft.table, status:'SUBMITTED', placed:clockOffset, items});
+    log('GUEST · Table '+state.draft.table, 'ORDER_SUBMITTED', `#${no} · ${items.reduce((s,l)=>s+l.qty,0)} items · ${gh(total)}`);
+    state.draft.items = [];
+    state.view = 'kitchen';
+    return render();
+  }
+
+  /* kitchen */
+  if(t.dataset.advance){
+    const o = state.orders.find(x => x.no === Number(t.dataset.advance));
+    const next = t.dataset.next;
+    o.status = next;
+    if(next==='PREPARING'){ o.ack = clockOffset; log('KITCHEN · Yaw','KITCHEN_ACKNOWLEDGED',`#${o.no} picked up`); }
+    if(next==='READY'){ o.ready = clockOffset; log('KITCHEN · Yaw','ORDER_READY',`#${o.no} ready · ${mmss(elapsed(o))}`); }
+    if(next==='SERVED'){ o.served = clockOffset; log('WAITER · Kofi','ORDER_SERVED',`#${o.no} delivered to Table ${o.table}`); }
+    return render();
+  }
+  if(t.id === 'mark86'){
+    const avail = MENU.filter(m => !state.soldOut.has(m.id));
+    const pick = avail[Math.floor(Math.random()*avail.length)];
+    state.soldOut.add(pick.id);
+    log('KITCHEN · Yaw','ITEM_86ED',`${pick.name} marked finished`);
+    return render();
+  }
+
+  /* cashier */
+  if(t.dataset.bill){ state.selectedBill = Number(t.dataset.bill); state.payMethod=null; state.tendered=''; return render(); }
+  if(t.dataset.method){ state.payMethod = t.dataset.method; state.tendered=''; return render(); }
+  if(t.dataset.cash){ state.tendered = String(t.dataset.cash); return render(); }
+  if(t.id === 'pay'){
+    const o = state.orders.find(x => x.no === state.selectedBill);
+    const b = billOf(o);
+    const tend = Math.round(parseFloat(state.tendered||'0')*100);
+    o.paid = {method:state.payMethod, at:clockOffset, change: state.payMethod==='CASH' ? tend-b.total : 0,
+              ref: state.payMethod.startsWith('MOMO') ? 'MP26091.4832'+o.no : null};
+    o.status = 'CLOSED';
+    const label = {CASH:'Cash',MOMO_MTN:'MTN MoMo',MOMO_TELECEL:'Telecel Cash',CARD:'Card'}[state.payMethod];
+    log('CASHIER · Ama','PAYMENT_RECORDED',`#${o.no} · ${label} · ${gh(b.total)}`);
+    log('GRA E-VAT','INVOICE_CLEARED',`#${o.no} · IRN GH26-0914-${o.no}-8841 · cleared in 1.2s`);
+    state.payMethod=null; state.tendered='';
+    return render();
+  }
+  if(t.id === 'void'){
+    const o = state.orders.find(x => x.no === state.selectedBill);
+    if(o.status === 'SUBMITTED'){
+      state.orders = state.orders.filter(x => x.no !== o.no);
+      state.selectedBill = state.orders[0]?.no;
+      log('CASHIER · Ama','ORDER_VOIDED',`#${o.no} voided before cooking · no authorisation needed`);
+      return render();
+    }
+    state.pin = {no:o.no, value:'', reason:'', error:''};
+    return renderModal();
+  }
+  if(t.id === 'pin-go'){
+    const v = document.getElementById('pin').value;
+    const reason = document.querySelector('input[name="reason"]:checked')?.value;
+    if(v !== '1234'){ state.pin.error = 'PIN not recognised. Attempt logged against this device.'; state.pin.value=''; return renderModal(); }
+    if(!reason){ state.pin.error = 'Choose a reason. It goes on the owner’s report.'; return renderModal(); }
+    const o = state.orders.find(x => x.no === state.pin.no);
+    const b = billOf(o);
+    state.orders = state.orders.filter(x => x.no !== o.no);
+    state.selectedBill = state.orders[0]?.no;
+    log('MANAGER · Ama','ORDER_VOIDED',`#${o.no} voided after cooking · ${gh(b.total)} · "${reason}" · auth Ama`, 1);
+    state.pin = null;
+    return render();
+  }
+
+  if(t.dataset.close && (e.target.classList.contains('scrim') || t.classList.contains('btn'))){
+    state.sheet = null; state.pin = null; return renderModal();
+  }
+});
+
+document.addEventListener('change', e => {
+  const g = e.target.dataset?.grp;
+  if(g && state.sheet){
+    const grp = MODGROUPS[g];
+    if(grp.type === 'one'){
+      state.sheet.mods = state.sheet.mods.filter(m => !grp.opts.some(o => o.n === m));
+      state.sheet.mods.push(e.target.value);
+    } else {
+      state.sheet.mods = e.target.checked
+        ? [...state.sheet.mods, e.target.value]
+        : state.sheet.mods.filter(m => m !== e.target.value);
+    }
+    renderModal();
+  }
+});
+
+document.addEventListener('input', e => {
+  if(e.target.id === 'tendered'){
+    state.tendered = e.target.value;
+    const o = state.orders.find(x => x.no === state.selectedBill);
+    const b = billOf(o);
+    const ch = Math.round(parseFloat(state.tendered||'0')*100) - b.total;
+    const box = document.querySelector('.change .v');
+    if(box) box.textContent = ch >= 0 ? gh(ch) : '—';
+    const btn = document.getElementById('pay');
+    if(btn) btn.disabled = ch < 0;
+  }
+  if(e.target.id === 'pin') state.pin.value = e.target.value;
+});
+
+function addToDraft(id, qty, mods){
+  const key = id + '|' + [...mods].sort().join(',');
+  const found = state.draft.items.find(l => l.id + '|' + [...l.mods].sort().join(',') === key);
+  if(found) found.qty += qty;
+  else state.draft.items.push({uid:'u'+Math.random().toString(36).slice(2,8), id, qty, mods});
+}
+
+/* ticking clock + live ticket timers */
+setInterval(() => {
+  clockOffset += 1;
+  const c = document.getElementById('clock');
+  if(c) c.textContent = hhmm(now());
+  if(state.view !== 'kitchen') return;
+  state.orders.forEach(o => {
+    if(!['SUBMITTED','PREPARING','READY'].includes(o.status)) return;
+    const card = [...document.querySelectorAll('.ticket')]
+      .find(el => el.querySelector('.tno')?.textContent.startsWith('#'+o.no));
+    if(!card) return;
+    const sec = elapsed(o), lvl = urgency(sec);
+    const tm = card.querySelector('.timer');
+    tm.textContent = mmss(sec);
+    tm.dataset.lvl = lvl;
+    card.dataset.late = lvl === 'late' ? '1' : '0';
+  });
+}, 1000);
+
+render();
+</script>
