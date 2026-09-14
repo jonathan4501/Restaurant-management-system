@@ -1,0 +1,134 @@
+# Production stack on one VPS (Hetzner/DO). Postgres is managed (DATABASE_URL) — no db service.
+# Images are built by CI and tagged by git SHA (see .github/workflows/deploy.yml).
+#
+# Usage on the VPS (repo checked out at /opt/renzy):
+#   export IMAGE=ghcr.io/<org>/Restaurant-management-system/backend:<sha>
+#   docker compose -f infra/compose.prod.yml --env-file infra/.env up -d
+#
+# Binding: /api/v1/stream stays on this VPS (never serverless). Caddy flush_interval -1.
+
+name: renzy
+
+services:
+  caddy:
+    build:
+      context: ./caddy
+      dockerfile: Dockerfile
+    image: ${CADDY_IMAGE:-renzy-caddy:local}
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+      - static:/srv/static:ro
+      - media:/srv/media:ro
+    environment:
+      API_DOMAIN: ${API_DOMAIN}
+      CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN:-}
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/ok"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  api:
+    image: ${IMAGE}
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.prod
+      GIT_SHA: ${GIT_SHA:-}
+    volumes:
+      - static:/app/staticfiles
+      - media:/app/mediafiles
+    expose: ["8000"]
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  worker:
+    image: ${IMAGE}
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.prod
+      GIT_SHA: ${GIT_SHA:-}
+    command: uv run --no-dev celery -A config worker -l info --concurrency 2
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "uv run --no-dev celery -A config inspect ping -d celery@$$HOSTNAME 2>/dev/null | grep -qi ok || exit 1",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  beat:
+    image: ${IMAGE}
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DJANGO_SETTINGS_MODULE: config.settings.prod
+      GIT_SHA: ${GIT_SHA:-}
+    command: uv run --no-dev celery -A config beat -l info
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "uv run --no-dev python -c \"import celery; import config.celery\"",
+        ]
+      interval: 60s
+      timeout: 15s
+      retries: 3
+      start_period: 40s
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    # Persistence on + noeviction so Celery/SSE never silently drop jobs or pub/sub under memory pressure.
+    command:
+      [
+        "redis-server",
+        "--appendonly",
+        "yes",
+        "--appendfsync",
+        "everysec",
+        "--maxmemory",
+        "256mb",
+        "--maxmemory-policy",
+        "noeviction",
+      ]
+    volumes: [redisdata:/data]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  caddy_data:
+  caddy_config:
+  redisdata:
+  static:
+  media:

@@ -18,6 +18,7 @@ dependencies = [
     "uuid6>=2024.7.10",
     "uvicorn[standard]>=0.34",
     "sentry-sdk[django,celery]>=2.20",
+    "django-storages[s3]>=1.14",
     "pillow>=11",
 ]
 
@@ -86,7 +87,16 @@ warn_return_any = true
 strict_equality = true
 
 [[tool.mypy.overrides]]
-module = ["uuid6", "dj_database_url", "argon2.*", "celery.*", "factory.*", "django_otp.*"]
+module = [
+    "uuid6",
+    "dj_database_url",
+    "argon2.*",
+    "celery.*",
+    "factory.*",
+    "django_otp.*",
+    "storages.*",
+    "sentry_sdk.*",
+]
 ignore_missing_imports = true
 
 [tool.django-stubs]

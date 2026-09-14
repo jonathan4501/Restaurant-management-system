@@ -1,0 +1,14 @@
+# Example rclone config for Cloudflare R2. Copy to the VPS as ~/.config/rclone/rclone.conf
+# (or set RCLONE_CONFIG). Never commit real keys.
+#
+# Create an R2 API token with Object Read & Write on the backups bucket only.
+# Account ID is in the Cloudflare dashboard → R2 → Overview.
+
+[r2]
+type = s3
+provider = Cloudflare
+access_key_id = REPLACE_ME
+secret_access_key = REPLACE_ME
+endpoint = https://ACCOUNT_ID.r2.cloudflarestorage.com
+acl = private
+no_check_bucket = true

@@ -1,0 +1,95 @@
+# Monthly restore drill: download last night's dump from R2 (or skip cleanly when secrets
+# are absent), restore into a scratch Postgres, run migrate + verify_projections.
+#
+# An untested backup is not a backup (docs/02-architecture.md).
+#
+# Required secrets for a real drill: RCLONE_CONFIG_B64, BACKUP_RCLONE_REMOTE, VERIFY_RESTAURANT_ID.
+name: Backup restore test
+
+on:
+  schedule:
+    # 03:30 UTC on the 1st of each month
+    - cron: "30 3 1 * *"
+  workflow_dispatch:
+
+jobs:
+  restore-test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: renzy
+          POSTGRES_PASSWORD: renzy
+          POSTGRES_DB: renzy_restore
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U renzy" --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      DATABASE_URL: postgres://renzy:renzy@localhost:5432/renzy_restore
+      SECRET_KEY: restore-test-only
+      JWT_SIGNING_KEY: restore-test-only
+      REDIS_URL: redis://localhost:6379/0
+      DJANGO_SETTINGS_MODULE: config.settings.test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pg client and rclone
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y postgresql-client rclone
+
+      - name: Configure rclone (optional)
+        id: rclone
+        env:
+          RCLONE_CONFIG_B64: ${{ secrets.RCLONE_CONFIG_B64 }}
+          BACKUP_RCLONE_REMOTE: ${{ secrets.BACKUP_RCLONE_REMOTE }}
+        run: |
+          if [ -z "${RCLONE_CONFIG_B64:-}" ] || [ -z "${BACKUP_RCLONE_REMOTE:-}" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::RCLONE_CONFIG_B64 / BACKUP_RCLONE_REMOTE not set — restore-test is a no-op until go-live."
+            exit 0
+          fi
+          mkdir -p "$HOME/.config/rclone"
+          echo "$RCLONE_CONFIG_B64" | base64 -d > "$HOME/.config/rclone/rclone.conf"
+          echo "skip=false" >> "$GITHUB_OUTPUT"
+          echo "remote=${BACKUP_RCLONE_REMOTE}" >> "$GITHUB_OUTPUT"
+
+      - name: Fetch newest dump
+        if: steps.rclone.outputs.skip != 'true'
+        id: dump
+        env:
+          REMOTE: ${{ steps.rclone.outputs.remote }}
+        run: |
+          LATEST="$(rclone lsf "${REMOTE%/}/postgres/" --files-only | sort | tail -n 1)"
+          if [ -z "$LATEST" ]; then
+            echo "::error::No dumps found under ${REMOTE%/}/postgres/"
+            exit 1
+          fi
+          rclone copyto "${REMOTE%/}/postgres/${LATEST}" ./restore.dump
+          echo "file=$LATEST" >> "$GITHUB_OUTPUT"
+          ls -lh ./restore.dump
+
+      - name: Restore into scratch Postgres
+        if: steps.rclone.outputs.skip != 'true'
+        run: |
+          chmod +x infra/scripts/restore-pg.sh
+          infra/scripts/restore-pg.sh ./restore.dump
+
+      - uses: astral-sh/setup-uv@v5
+        if: steps.rclone.outputs.skip != 'true'
+        with:
+          enable-cache: true
+
+      - name: verify_projections
+        if: steps.rclone.outputs.skip != 'true'
+        working-directory: backend
+        env:
+          VERIFY_RESTAURANT_ID: ${{ secrets.VERIFY_RESTAURANT_ID }}
+        run: |
+          uv sync --frozen
+          if [ -z "${VERIFY_RESTAURANT_ID:-}" ]; then
+            echo "::error::VERIFY_RESTAURANT_ID secret is required for restore-test"
+            exit 1
+          fi
+          uv run python manage.py verify_projections --restaurant "$VERIFY_RESTAURANT_ID"
