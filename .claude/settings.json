@@ -1,7 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(git -c core.autocrlf=false commit -q -F -)"
-    ]
-  }
-}

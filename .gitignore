@@ -36,6 +36,7 @@ htmlcov/
 .eslintcache
 
 # Editors & OS
+.claude/
 .vscode/
 .idea/
 *.swp

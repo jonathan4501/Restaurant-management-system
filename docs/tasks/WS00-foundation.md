@@ -42,7 +42,7 @@ test failing.
    headers + `Idempotency-Key`), `lib/api/schema.d.ts` generated, `lib/money.ts` (`formatPesewas`),
    `lib/outbox/types.ts`, route stubs `/login /order /kds /cashier /owner`. Vitest configured with one test
    for `formatPesewas`.
-9. **CI**: `ci.yml` (Postgres + Redis services; `make check`; `pnpm lint typecheck test`), `deploy.yml`
+9. **CI**: `ci.yml` (Postgres + Redis services; `make check`; `npm run lint && npm run typecheck && npm test`), `deploy.yml`
    skeleton (SSH, `docker compose pull && up -d && migrate`).
 
 ## Exit criteria

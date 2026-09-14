@@ -12,7 +12,7 @@ Learnable in ten minutes with no manual: large targets, no nested menus.
 
 ## Build
 
-1. **Mock**: `pnpm mock` runs Prism on `../backend/openapi.json` with example responses; every screen must
+1. **Mock**: `npm run mock` runs Prism on `../backend/openapi.json` with example responses; every screen must
    work against it so UI work never waits on the backend.
 2. **App shell**: `app/layout.tsx` with device context (token, allowed roles), staff context (JWT, role),
    connectivity badge (online / offline / pending N), TanStack Query provider, Zustand stores

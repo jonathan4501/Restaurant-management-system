@@ -26,7 +26,7 @@ backend/                     Django 5.2 + DRF on ASGI · Python ≥ 3.12 · uv
     printing/                ESC/POS payload builders (ticket, receipt) — consumed by bridge/
   tests/                     shared fixtures and factories
   openapi.json               generated, committed, drift-checked in CI
-frontend/                    Next.js 15 App Router PWA · TypeScript strict · Tailwind · pnpm
+frontend/                    Next.js 15 App Router PWA · TypeScript strict · Tailwind · npm
 bridge/                      Raspberry Pi print daemon (Python)
 infra/                       compose.yml · compose.dev.yml · Caddyfile · .env.example · deploy.sh
 .github/workflows/           ci.yml · deploy.yml
@@ -123,7 +123,7 @@ cp infra/.env.example infra/.env
 docker compose -f infra/compose.dev.yml up -d db redis
 cd backend && uv sync && uv run python manage.py migrate && uv run python manage.py seed_renzy
 uv run uvicorn config.asgi:application --reload            # API on :8000
-cd ../frontend && pnpm install && pnpm dev                 # PWA on :3000
+cd ../frontend && npm install && npm run dev               # PWA on :3000
 ```
 
 `make` targets (run from the repo root; on Windows use the commands inside the Makefile or run them in
