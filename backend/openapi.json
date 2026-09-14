@@ -31,6 +31,8 @@ paths:
           type: string
       tags:
       - events
+      security:
+      - bearerAuth: []
       responses:
         '200':
           content:
@@ -39,4 +41,11 @@ paths:
                 type: object
                 additionalProperties: {}
           description: ''
-components: {}
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Staff JWT (with X-Device-Token) or guest JWT. See docs/09-api-contract.md
+        §1.

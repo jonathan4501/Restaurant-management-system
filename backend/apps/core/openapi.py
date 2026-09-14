@@ -2,6 +2,8 @@
 
 from typing import Any
 
+from drf_spectacular.extensions import OpenApiAuthenticationExtension
+
 IDEMPOTENCY_HEADER = {
     "name": "Idempotency-Key",
     "in": "header",
@@ -41,3 +43,18 @@ def add_standard_headers(
             if not path.startswith("/api/v1/guest") and "X-Device-Token" not in names:
                 params.append(DEVICE_HEADER)
     return result
+
+
+class PrincipalAuthScheme(OpenApiAuthenticationExtension):
+    """Documents PrincipalAuthentication: a bearer JWT (staff or guest) plus X-Device-Token for staff."""
+
+    target_class = "apps.accounts.principals.PrincipalAuthentication"
+    name = "bearerAuth"
+
+    def get_security_definition(self, auto_schema: Any) -> dict[str, Any]:
+        return {
+            "type": "http",
+            "scheme": "bearer",
+            "bearerFormat": "JWT",
+            "description": "Staff JWT (with X-Device-Token) or guest JWT. See docs/09-api-contract.md §1.",
+        }
