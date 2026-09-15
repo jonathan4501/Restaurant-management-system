@@ -10,7 +10,7 @@ import { MenuBrowser } from "@/components/MenuBrowser";
 import { ModifierSheet } from "@/components/ModifierSheet";
 import { TableGrid } from "@/components/TableGrid";
 import { api } from "@/lib/api/client";
-import type { DraftModifier, MenuItem, MenuResponse, TableRow } from "@/lib/domain";
+import { sortTables, type DraftModifier, type MenuItem, type MenuResponse, type TableRow } from "@/lib/domain";
 import { useOrderMode } from "@/lib/hooks/useOrderMode";
 import { useI18n } from "@/lib/i18n";
 import { useDraft } from "@/lib/stores/draft";
@@ -22,8 +22,9 @@ function mapMenu(data: unknown): MenuResponse {
 }
 
 function mapTables(data: unknown): TableRow[] {
-  const body = data as { tables?: TableRow[] };
-  return body.tables ?? [];
+  // The API returns a bare list; older mocks wrapped it in { tables }.
+  const rows = Array.isArray(data) ? (data as TableRow[]) : ((data as { tables?: TableRow[] }).tables ?? []);
+  return sortTables(rows);
 }
 
 export function OrderScreen() {
@@ -35,12 +36,12 @@ export function OrderScreen() {
   const [pickerItem, setPickerItem] = useState<MenuItem | null>(null);
   const [sent, setSent] = useState(false);
 
-  const menuPath = mode === "qr" || mode === "guest" ? "/api/v1/guest/menu" : "/api/v1/menu";
+  const guest = mode === "qr" || mode === "guest";
 
   const menuQuery = useQuery({
     queryKey: ["menu", mode],
     queryFn: async () => {
-      const { data, error } = await api.GET(menuPath as "/api/v1/menu");
+      const { data, error } = guest ? await api.GET("/api/v1/guest/menu") : await api.GET("/api/v1/menu");
       if (error) throw error;
       return mapMenu(data);
     },
@@ -78,36 +79,41 @@ export function OrderScreen() {
   const ensureOrder = useCallback(async () => {
     if (draft.orderId) return draft.orderId;
     const orderId = uuidv7();
-    const { data, error } = await api.POST("/api/v1/orders", {
-      body: { id: orderId, session_id: draft.sessionId! },
-    });
+    const body = { id: orderId, session_id: draft.sessionId! };
+    const { data, error } = guest
+      ? await api.POST("/api/v1/guest/orders", { body })
+      : await api.POST("/api/v1/orders", { body });
     if (error) throw error;
-    const id = (data as { id?: string }).id ?? orderId;
+    const id = (data as unknown as { id?: string } | undefined)?.id ?? orderId;
     draft.setOrderId(id);
     return id;
-  }, [draft]);
+  }, [draft, guest]);
 
   const sendMutation = useMutation({
     mutationFn: async () => {
       draft.setSubmitPending(true);
       const orderId = await ensureOrder();
       for (const line of draft.lines) {
-        const { error } = await api.POST("/api/v1/orders/{id}/items", {
-          params: { path: { id: orderId } },
+        const request = {
+          params: { path: { order_id: orderId } },
           body: {
             id: line.client_id,
             menu_item_id: line.menu_item_id,
             quantity: line.quantity,
             modifier_ids: line.modifiers.map((m) => m.id),
             notes: line.notes,
+            course: 1,
           },
-        });
+        };
+        const { error } = guest
+          ? await api.POST("/api/v1/guest/orders/{order_id}/items", request)
+          : await api.POST("/api/v1/orders/{order_id}/items", request);
         if (error) throw error;
       }
-      const submitPath = mode === "qr" || mode === "guest" ? "/api/v1/guest/orders/{id}/submit" : "/api/v1/orders/{id}/submit";
-      const { error: submitError } = await api.POST(submitPath as "/api/v1/orders/{id}/submit", {
-        params: { path: { id: orderId } },
-      });
+      const submit = { params: { path: { order_id: orderId } } };
+      const { error: submitError } = guest
+        ? await api.POST("/api/v1/guest/orders/{order_id}/submit", submit)
+        : await api.POST("/api/v1/orders/{order_id}/submit", submit);
       if (submitError) throw submitError;
       return orderId;
     },
@@ -152,7 +158,7 @@ export function OrderScreen() {
               {t("language")}
             </button>
           ) : (
-            <span className="text-sm text-[var(--ink-2)]">{staff?.full_name ?? "Staff"}</span>
+            <span className="text-sm text-[var(--ink-2)]">{staff?.name ?? "Staff"}</span>
           )}
           <ConnectivityBadge />
         </div>
@@ -177,7 +183,7 @@ export function OrderScreen() {
             {showTables ? (
               <section>
                 <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-[var(--ink-3)]">Tables</h2>
-                {tablesQuery.isLoading ? <p className="text-sm">Loading tables…</p> : null}
+                {tablesQuery.isLoading ? <p className="text-sm">Loading tablesâ€¦</p> : null}
                 {tablesQuery.data ? (
                   <TableGrid tables={tablesQuery.data} selectedId={draft.tableId} onSelect={handleSelectTable} />
                 ) : null}
@@ -196,7 +202,7 @@ export function OrderScreen() {
                     ) : null}
                   </div>
                 ) : null}
-                {menuQuery.isLoading ? <p className="text-sm">Loading menu…</p> : null}
+                {menuQuery.isLoading ? <p className="text-sm">Loading menuâ€¦</p> : null}
                 {menuQuery.data ? (
                   <MenuBrowser categories={menuQuery.data.categories} onSelectItem={setPickerItem} guestSurface={isGuestSurface} />
                 ) : null}
