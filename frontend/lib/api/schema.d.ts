@@ -149,7 +149,7 @@ export interface paths {
         };
         /**
          * Poll events (SSE fallback)
-         * @description GET /api/v1/events?since=<seq>&limit=200 — polling fallback with the same envelopes as the stream.
+         * @description `last_seq` is the highest seq scanned, including events this role may not see — always send it back as `since`. `has_more` means call again immediately.
          */
         get: operations["events_retrieve"];
         put?: never;
@@ -955,7 +955,7 @@ export interface operations {
     events_retrieve: {
         parameters: {
             query?: {
-                /** @description Max events (default 200, max 1000). */
+                /** @description Max events scanned (default 200, max 1000). */
                 limit?: number;
                 /** @description Last seq seen. Returns events with seq > since. */
                 since?: number;

@@ -120,7 +120,7 @@ class DeviceAdmin(TenantAdmin):
             with restaurant_context(device.restaurant_id):
                 Device.objects.filter(pk=device.pk).update(revoked_at=now)
 
-                def handler(ctx: CommandContext) -> CommandOutcome:
+                def handler(ctx: CommandContext, device: Device = device) -> CommandOutcome:
                     return CommandOutcome(
                         events=[
                             EventDraft(
