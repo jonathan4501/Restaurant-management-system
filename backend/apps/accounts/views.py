@@ -11,7 +11,8 @@ import uuid
 from typing import Any
 
 from django.conf import settings
-from django.contrib.auth import authenticate, get_user as django_get_user, login, logout
+from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth import get_user as django_get_user
 from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
@@ -27,14 +28,19 @@ from apps.core.commands import CommandContext, CommandOutcome, EventDraft, run_c
 from apps.core.errors import ApiError, ErrorCode, problem
 from apps.core.idempotency import request_hash
 from apps.core.permissions import RolePermission
-from apps.core.roles import ActorRole, AggregateType, AuthorisationPurpose, MANAGER_ROLES, STAFF_ROLES
+from apps.core.roles import (
+    MANAGER_ROLES,
+    STAFF_ROLES,
+    ActorRole,
+    AggregateType,
+    AuthorisationPurpose,
+)
 from apps.core.tenancy import restaurant_context
 from apps.core.views import CommandView, parse_client_time, parse_idempotency_key
 from apps.floor.models import TableSession
 from apps.orders.events import EventType
 
 from .authorisation import issue_authorisation
-from .enrolment import normalize_enrolment_code
 from .jwt_sessions import revoke_jti
 from .models import Device, Staff
 from .pin_lockout import clear_failures, lockout_remaining_seconds, record_failure
@@ -119,7 +125,9 @@ def _ctx(
     )
 
 
-def _problem_response(status_code: int, code: ErrorCode | str, detail: str, **extra: Any) -> Response:
+def _problem_response(
+    status_code: int, code: ErrorCode | str, detail: str, **extra: Any
+) -> Response:
     return Response(
         problem(status_code, str(code), detail, **extra),
         status=status_code,
@@ -294,9 +302,7 @@ class PinLoginView(CommandView):
             response["Idempotent-Replayed"] = "true"
         return response
 
-    def _fail(
-        self, request: Request, device: Device, *, staff_id: uuid.UUID | None
-    ) -> Response:
+    def _fail(self, request: Request, device: Device, *, staff_id: uuid.UUID | None) -> Response:
         attempt, locked_for = record_failure(device.id)
 
         def handler(ctx: CommandContext) -> CommandOutcome:
@@ -357,9 +363,7 @@ class AuthoriseView(CommandView):
     def handle(self, ctx: CommandContext, data: dict[str, Any], **kwargs: Any) -> CommandOutcome:
         pin = data["pin"]
         purpose = AuthorisationPurpose(data["purpose"])
-        managers = Staff.objects.filter(
-            is_active=True, role__in=[r.value for r in MANAGER_ROLES]
-        )
+        managers = Staff.objects.filter(is_active=True, role__in=[r.value for r in MANAGER_ROLES])
         matched: Staff | None = None
         for candidate in managers:
             if verify_pin(candidate.pin_hash, pin):
@@ -368,9 +372,7 @@ class AuthoriseView(CommandView):
         if matched is None:
             raise ApiError(401, ErrorCode.PIN_INVALID, "Manager PIN is incorrect.")
 
-        token = issue_authorisation(
-            staff_id=matched.id, device_id=ctx.device_id, purpose=purpose
-        )
+        token = issue_authorisation(staff_id=matched.id, device_id=ctx.device_id, purpose=purpose)
         return CommandOutcome(
             events=[
                 EventDraft(
@@ -406,7 +408,7 @@ class OwnerLoginView(CommandView):
         # Owners use email as username (or Staff.email → linked user).
         user = authenticate(request, username=email, password=password)
         staff = find_owner_staff_by_email(email)
-        if user is None and staff is not None and staff.user_id:
+        if user is None and staff is not None and staff.user is not None:
             user = authenticate(request, username=staff.user.get_username(), password=password)
 
         if user is None:
@@ -419,7 +421,12 @@ class OwnerLoginView(CommandView):
         login(_django_request(request), user)
         # Idempotency without an event — restaurant from the owner staff row.
         result = run_command(
-            _ctx(request, restaurant_id=staff.restaurant_id, actor_role=ActorRole.OWNER, actor_id=staff.id),
+            _ctx(
+                request,
+                restaurant_id=staff.restaurant_id,
+                actor_role=ActorRole.OWNER,
+                actor_id=staff.id,
+            ),
             lambda ctx: CommandOutcome(events=[], response={"totp_required": True}),
         )
         response = Response(result.body, status=result.status)
@@ -462,7 +469,12 @@ class OwnerTotpView(CommandView):
         otp_login(django_request, matched)
         django_request.session.save()
         result = run_command(
-            _ctx(request, restaurant_id=staff.restaurant_id, actor_role=ActorRole.OWNER, actor_id=staff.id),
+            _ctx(
+                request,
+                restaurant_id=staff.restaurant_id,
+                actor_role=ActorRole.OWNER,
+                actor_id=staff.id,
+            ),
             lambda ctx: CommandOutcome(events=[], response={"ok": True}),
         )
         response = Response(result.body, status=result.status)
@@ -480,6 +492,8 @@ class OwnerMeView(APIView):
 
     def get(self, request: Request) -> Response:
         principal = current_principal(request)
+        if principal.actor_id is None:
+            raise ApiError(401, ErrorCode.TOKEN_INVALID, "Owner account required.")
         with restaurant_context(principal.restaurant_id):
             staff = Staff.objects.filter(id=principal.actor_id).first()
         if staff is None:
@@ -563,8 +577,8 @@ class QrGuestSessionView(CommandView):
     authentication_classes: list = []
     permission_classes = [AllowAny]
 
-    def post(self, request: Request, qr_token: str, **kwargs: Any) -> Response:
-        table = find_table_by_qr_token(qr_token)
+    def post(self, request: Request, **kwargs: Any) -> Response:
+        table = find_table_by_qr_token(kwargs["qr_token"])
         if table is None:
             raise ApiError(404, ErrorCode.NOT_FOUND, "Table not found.")
 

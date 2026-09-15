@@ -1,5 +1,5 @@
 """
-Production settings. Secrets come from the environment — never from the repo.
+Production settings. Secrets come from the environment â€” never from the repo.
 
 Sentry and R2 (django-storages) are env-gated so a missing DSN/keys never crash boot;
 local prod-like runs without credentials still start.
@@ -29,8 +29,9 @@ if SENTRY_DSN:
     from sentry_sdk.integrations.celery import CeleryIntegration
     from sentry_sdk.integrations.django import DjangoIntegration
     from sentry_sdk.integrations.redis import RedisIntegration
+    from sentry_sdk.types import Event, Hint
 
-    def _before_send(event: dict, hint: dict) -> dict | None:  # noqa: ARG001
+    def _before_send(event: Event, hint: Hint) -> Event | None:  # noqa: ARG001
         # Tag critical money / order paths for alert rules (see infra/sentry/alert-rules.md).
         request = (event.get("request") or {}) if isinstance(event, dict) else {}
         url = str(request.get("url") or "")
