@@ -1,4 +1,9 @@
-# Deploy skeleton (WS13 completes it): build the backend image, push to GHCR, pull + migrate on the VPS.
+# Deploy after CI succeeds on main (or manually via workflow_dispatch).
+# Builds the backend image, pushes to GHCR tagged by commit SHA, SSHs to the VPS,
+# pulls, migrates, restarts, smokes GET /readyz.
+#
+# Required GitHub secrets (human): VPS_HOST, VPS_USER, VPS_SSH_KEY
+# Optional repo variable: VPS_DEPLOY_PATH (default /opt/renzy)
 name: Deploy
 
 on:
@@ -7,6 +12,11 @@ on:
     branches: [main]
     types: [completed]
   workflow_dispatch:
+    inputs:
+      git_sha:
+        description: "Commit SHA to deploy (blank = this workflow's HEAD)"
+        required: false
+        type: string
 
 concurrency: deploy-production
 
@@ -17,21 +27,57 @@ jobs:
     permissions:
       contents: read
       packages: write
-    env:
-      IMAGE: ghcr.io/${{ github.repository }}/backend:${{ github.sha }}
     steps:
+      - name: Resolve commit SHA
+        id: sha
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            SHA="${{ inputs.git_sha }}"
+            if [ -z "$SHA" ]; then SHA="${{ github.sha }}"; fi
+          else
+            SHA="${{ github.event.workflow_run.head_sha }}"
+          fi
+          echo "git_sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}/backend:$SHA" >> "$GITHUB_ENV"
+          echo "IMAGE_LATEST=ghcr.io/${GITHUB_REPOSITORY,,}/backend:latest" >> "$GITHUB_ENV"
+          echo "GIT_SHA=$SHA" >> "$GITHUB_ENV"
+
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.sha.outputs.git_sha }}
+
       - uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/setup-buildx-action@v3
+
       - uses: docker/build-push-action@v6
         with:
           context: backend
           push: true
-          tags: ${{ env.IMAGE }}
-          build-args: GIT_SHA=${{ github.sha }}
+          tags: |
+            ${{ env.IMAGE }}
+            ${{ env.IMAGE_LATEST }}
+          build-args: GIT_SHA=${{ env.GIT_SHA }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Record previous image for rollback
+        uses: appleboy/ssh-action@v1
+        continue-on-error: true
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            set -euo pipefail
+            DEPLOY_PATH="${{ vars.VPS_DEPLOY_PATH || '/opt/renzy' }}"
+            cd "$DEPLOY_PATH"
+            if [ -f infra/.image.env ]; then cp infra/.image.env infra/.image.env.prev; fi
+
       - name: Pull, migrate, restart on the VPS
         uses: appleboy/ssh-action@v1
         with:
@@ -40,11 +86,35 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
             set -euo pipefail
-            cd /opt/renzy
-            echo "IMAGE=${{ env.IMAGE }}" > .image.env
-            export IMAGE=${{ env.IMAGE }}
-            docker compose -f infra/compose.yml pull api worker beat
-            docker compose -f infra/compose.yml run --rm api uv run --no-dev python manage.py migrate --noinput
-            docker compose -f infra/compose.yml up -d
-            sleep 5
-            curl -fsS http://localhost:8000/readyz || (docker compose -f infra/compose.yml logs --tail 100 api; exit 1)
+            DEPLOY_PATH="${{ vars.VPS_DEPLOY_PATH || '/opt/renzy' }}"
+            cd "$DEPLOY_PATH"
+            # Expect infra/.env already present on the host (secrets never in the repo).
+            test -f infra/.env
+
+            echo "IMAGE=${{ env.IMAGE }}" > infra/.image.env
+            echo "GIT_SHA=${{ env.GIT_SHA }}" >> infra/.image.env
+            set -a
+            # shellcheck disable=SC1091
+            . infra/.env
+            # shellcheck disable=SC1091
+            . infra/.image.env
+            set +a
+            export IMAGE GIT_SHA
+
+            docker compose -f infra/compose.prod.yml pull api worker beat
+            docker compose -f infra/compose.prod.yml run --rm --no-deps api \
+              uv run --no-dev python manage.py migrate --noinput
+            docker compose -f infra/compose.prod.yml run --rm --no-deps api \
+              uv run --no-dev python manage.py collectstatic --noinput
+            docker compose -f infra/compose.prod.yml up -d --remove-orphans
+
+            for i in 1 2 3 4 5 6 7 8 9 10; do
+              if docker compose -f infra/compose.prod.yml exec -T api \
+                curl -fsS http://localhost:8000/readyz; then
+                echo "readyz ok"
+                exit 0
+              fi
+              sleep 3
+            done
+            docker compose -f infra/compose.prod.yml logs --tail 150 api
+            exit 1

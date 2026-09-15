@@ -23,6 +23,26 @@ from .tenancy import reset_current_restaurant, set_current_restaurant
 log = logging.getLogger("renzy.request")
 
 
+def _sentry_request_tags(principal: object | None, request_id: str) -> None:
+    """Attach restaurant_id / device_id when Sentry is initialised (prod). No-op otherwise."""
+    try:
+        import sentry_sdk
+    except ImportError:
+        return
+    client = sentry_sdk.get_client()
+    if client is None or not client.is_active():
+        return
+    sentry_sdk.set_tag("request_id", request_id)
+    if principal is None:
+        return
+    rid = getattr(principal, "restaurant_id", None)
+    did = getattr(principal, "device_id", None)
+    if rid is not None:
+        sentry_sdk.set_tag("restaurant_id", str(rid))
+    if did is not None:
+        sentry_sdk.set_tag("device_id", str(did))
+
+
 class RequestContextMiddleware:
     def __init__(self, get_response: Callable[[HttpRequest], HttpResponse]) -> None:
         self.get_response = get_response
@@ -40,6 +60,8 @@ class RequestContextMiddleware:
             auth_error = err
         request.principal = principal  # type: ignore[attr-defined]
         request.auth_error = auth_error  # type: ignore[attr-defined]
+
+        _sentry_request_tags(principal, request_id)
 
         token = set_current_restaurant(principal.restaurant_id if principal else None)
         try:

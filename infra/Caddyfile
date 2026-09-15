@@ -1,3 +1,16 @@
+# Production reverse proxy for the RENZY API on the VPS.
+# SSE must never be buffered: flush_interval -1 on /api/v1/stream (ADR-0003).
+#
+# TLS: default is Caddy automatic HTTPS (HTTP-01). For DNS-01 (Cloudflare), add:
+#   tls { dns cloudflare {env.CLOUDFLARE_API_TOKEN} }
+# and set CLOUDFLARE_API_TOKEN in infra/.env. Image already includes the Cloudflare plugin.
+# If Cloudflare orange-clouds the hostname (Full/Strict), mount an origin cert instead.
+
+# Local-only probe for compose healthchecks (Host header does not match API_DOMAIN).
+:8080 {
+	respond /ok "ok" 200
+}
+
 {$API_DOMAIN} {
 	encode gzip
 
@@ -10,8 +23,16 @@
 		file_server
 	}
 
-	# Server-Sent Events: never buffer, never time out.
-	handle /api/v1/stream {
+	# Pass health probes without auth; used by uptime monitors and compose healthchecks.
+	handle /healthz {
+		reverse_proxy api:8000
+	}
+	handle /readyz {
+		reverse_proxy api:8000
+	}
+
+	# Server-Sent Events: never buffer, never time out. Do not put this path on serverless.
+	handle /api/v1/stream* {
 		reverse_proxy api:8000 {
 			flush_interval -1
 			transport http {
