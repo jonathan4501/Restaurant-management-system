@@ -1,7 +1,12 @@
+"use client";
+
+import { Suspense } from "react";
+import { OrderScreen } from "@/components/OrderScreen";
+
 export default function OrderPage() {
   return (
-    <main className="flex min-h-screen items-center justify-center px-4">
-      <p className="text-sm opacity-70">Ordering — waiter / guest / qr modes. Built in WS07.</p>
-    </main>
+    <Suspense fallback={<main className="staff-shell staff-theme flex min-h-screen items-center justify-center">Loading…</main>}>
+      <OrderScreen />
+    </Suspense>
   );
 }

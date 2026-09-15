@@ -10,8 +10,9 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "types": "openapi-typescript ../backend/openapi.json -o lib/api/schema.d.ts",
-    "mock": "npx --yes @stoplight/prism-cli mock ../backend/openapi.json -p 4010"
+    "types": "openapi-typescript ./mock/openapi.json -o lib/api/schema.d.ts",
+    "mock": "prism mock ./mock/openapi.json -p 4010 --host 127.0.0.1",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.90.0",
@@ -25,6 +26,8 @@
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@playwright/test": "^1.55.0",
+    "@stoplight/prism-cli": "^5.14.2",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
