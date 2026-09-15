@@ -38,7 +38,11 @@ def record_failure(device_id: uuid.UUID) -> tuple[int, int | None]:
         ttl = redis.ttl(key)
         retry = max(int(ttl), 0) if ttl is not None and ttl >= 0 else settings.PIN_LOCKOUT_SECONDS
         # Ensure TTL stays at least the lockout window once locked.
-        if ttl is not None and 0 <= ttl < settings.PIN_LOCKOUT_SECONDS and count == settings.PIN_MAX_FAILURES:
+        if (
+            ttl is not None
+            and 0 <= ttl < settings.PIN_LOCKOUT_SECONDS
+            and count == settings.PIN_MAX_FAILURES
+        ):
             redis.expire(key, settings.PIN_LOCKOUT_SECONDS)
             retry = settings.PIN_LOCKOUT_SECONDS
         return count, retry

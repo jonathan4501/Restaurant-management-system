@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 from django.http import HttpRequest
 from django.utils import timezone
@@ -27,6 +27,9 @@ from apps.core.tenancy import restaurant_context
 from .enrolment import normalize_enrolment_code
 from .models import Device, Staff
 from .tokens import TokenError, decode, hash_device_token
+
+if TYPE_CHECKING:
+    from apps.floor.models import Table
 
 
 @dataclass(frozen=True)
@@ -84,13 +87,11 @@ def find_device_by_enrolment_code(code: str) -> Device | None:
     if not normalized:
         return None
     return (
-        Device.objects.unscoped()
-        .filter(enrolment_code=normalized, revoked_at__isnull=True)
-        .first()
+        Device.objects.unscoped().filter(enrolment_code=normalized, revoked_at__isnull=True).first()
     )
 
 
-def find_table_by_qr_token(qr_token: str) -> object | None:
+def find_table_by_qr_token(qr_token: str) -> Table | None:
     from apps.floor.models import Table
 
     return Table.objects.unscoped().filter(qr_token=qr_token, is_active=True).first()
@@ -103,6 +104,7 @@ def find_owner_staff_by_email(email: str) -> Staff | None:
         .select_related("user")
         .first()
     )
+
 
 def _device(request: HttpRequest) -> Device | None:
     return device_from_request(request)
@@ -144,9 +146,7 @@ def resolve_principal(request: HttpRequest) -> Principal | None:
     if claims.get("kind") == "GUEST":
         session_id = uuid.UUID(claims["sid"])
         _guest_session_open(restaurant_id, session_id)
-        return Principal(
-            "GUEST", restaurant_id, None, ActorRole.GUEST, None, session_id=session_id
-        )
+        return Principal("GUEST", restaurant_id, None, ActorRole.GUEST, None, session_id=session_id)
 
     if claims.get("kind") != "STAFF":
         raise AuthError(ErrorCode.TOKEN_INVALID, "Unknown token kind.")
