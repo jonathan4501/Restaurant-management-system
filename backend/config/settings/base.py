@@ -166,6 +166,8 @@ PIN_LOCKOUT_SECONDS = 15 * 60
 IDEMPOTENCY_IN_PROGRESS_TAKEOVER_SECONDS = 60
 SSE_HEARTBEAT_SECONDS = 15
 SSE_REPLAY_LIMIT = 1000
+SSE_AUTH_RECHECK_SECONDS = 30  # a revoked device or logged-out token is cut off within this
+METRICS_TOKEN = env("METRICS_TOKEN", "")  # /metrics needs this bearer; unset = 404 unless DEBUG
 ERROR_TYPE_BASE = "https://renzy.app/errors/"
 
 LOGGING = {
