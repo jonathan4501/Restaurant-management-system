@@ -4,6 +4,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api/client";
 import { tokens } from "@/lib/auth/tokens";
+import type { QrEntryResponse } from "@/lib/domain";
 import { useDraft } from "@/lib/stores/draft";
 
 export default function GuestQrPage() {
@@ -19,7 +20,7 @@ export default function GuestQrPage() {
       if (!qrToken) return;
       const { data, error: reqError } = await api.POST("/api/v1/guest/sessions/{qr_token}", { params: { path: { qr_token: qrToken } } });
       if (reqError) { setError("Could not open this table. Ask your server."); return; }
-      const body = data as { token: string; session_id: string; table_number: string };
+      const body = data as unknown as QrEntryResponse;
       tokens.setSession(body.token);
       resetDraft();
       setTable("guest-table", body.table_number, body.session_id);

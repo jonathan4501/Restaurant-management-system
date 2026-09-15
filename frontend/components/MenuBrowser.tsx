@@ -13,7 +13,7 @@ interface MenuBrowserProps {
 
 export function MenuBrowser({ categories, onSelectItem, guestSurface }: MenuBrowserProps) {
   const sorted = useMemo(
-    () => [...categories].sort((a, b) => a.sort_order - b.sort_order).map((c) => ({ ...c, items: [...c.items].sort((x, y) => x.name.localeCompare(y.name)) })),
+    () => [...categories].sort((a, b) => a.sort_order - b.sort_order).map((c) => ({ ...c, items: [...c.items].sort((x, y) => (x.sort_order ?? 0) - (y.sort_order ?? 0) || x.name.localeCompare(y.name)) })),
     [categories],
   );
   const [activeId, setActiveId] = useState(sorted[0]?.id ?? "");

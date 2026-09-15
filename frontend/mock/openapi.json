@@ -63,7 +63,6 @@
             "content": {
               "application/json": {
                 "example": {
-                  "id": "d0000000-0000-4000-8000-000000000099",
                   "label": "Floor tablet 1",
                   "allowed_roles": [
                     "WAITER",
@@ -74,29 +73,26 @@
                   "staff": [
                     {
                       "id": "b1000001-0001-4001-8001-000000000001",
-                      "full_name": "Kofi Mensah",
                       "role": "WAITER",
-                      "initials": "KM"
+                      "name": "Kofi Mensah"
                     },
                     {
                       "id": "b1000002-0002-4002-8002-000000000002",
-                      "full_name": "Efua Mensah",
                       "role": "WAITER",
-                      "initials": "EM"
+                      "name": "Efua Mensah"
                     },
                     {
                       "id": "b1000003-0003-4003-8003-000000000003",
-                      "full_name": "Yaw Mensah",
                       "role": "KITCHEN",
-                      "initials": "YM"
+                      "name": "Yaw Mensah"
                     },
                     {
                       "id": "b1000004-0004-4004-8004-000000000004",
-                      "full_name": "Ama Mensah",
                       "role": "CASHIER",
-                      "initials": "AM"
+                      "name": "Ama Mensah"
                     }
-                  ]
+                  ],
+                  "device_id": "d0000000-0000-4000-8000-000000000099"
                 }
               }
             }
@@ -139,9 +135,8 @@
                   "expires_at": "2026-09-15T21:00:00Z",
                   "staff": {
                     "id": "b1000002-0002-4002-8002-000000000002",
-                    "full_name": "Efua Mensah",
                     "role": "WAITER",
-                    "initials": "EM"
+                    "name": "Efua Mensah"
                   }
                 }
               }
@@ -294,32 +289,30 @@
             "description": "ok",
             "content": {
               "application/json": {
-                "example": {
-                  "tables": [
-                    {
-                      "id": "0d51acb8-5e6a-5646-9003-ec4053f729e6",
-                      "number": "7",
-                      "seats": 4,
-                      "state_chip": "free",
-                      "open_session": null
+                "example": [
+                  {
+                    "id": "0d51acb8-5e6a-5646-9003-ec4053f729e6",
+                    "number": "7",
+                    "seats": 4,
+                    "open_session": null,
+                    "is_active": true
+                  },
+                  {
+                    "id": "t1",
+                    "number": "1",
+                    "seats": 4,
+                    "open_session": {
+                      "id": "s1",
+                      "opened_at": "2026-09-14T18:00:00Z",
+                      "bill_total_pesewas": 13300,
+                      "paid_pesewas": 0,
+                      "order_count": 1,
+                      "balance_pesewas": 13300,
+                      "state": "sent"
                     },
-                    {
-                      "id": "t1",
-                      "number": "1",
-                      "seats": 4,
-                      "state_chip": "ordered",
-                      "open_session": {
-                        "id": "s1",
-                        "opened_at": "2026-09-14T18:00:00Z",
-                        "party_size": 2,
-                        "seated_minutes": 45,
-                        "bill_total_pesewas": 13300,
-                        "paid_pesewas": 0,
-                        "order_count": 1
-                      }
-                    }
-                  ]
-                }
+                    "is_active": true
+                  }
+                ]
               }
             }
           }
