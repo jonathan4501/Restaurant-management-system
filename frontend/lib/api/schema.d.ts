@@ -4,6 +4,57 @@
  */
 
 export interface paths {
+    "/api/v1/devices/enrol": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Enrol device */
+        post: operations["devices_enrol"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/devices/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Device and staff list for PIN pad */
+        get: operations["devices_me"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/pin": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Staff PIN login */
+        post: operations["auth_pin"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/authorise": {
         parameters: {
             query?: never;
@@ -13,8 +64,195 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description POST /auth/authorise — manager/owner PIN → single-use authorisation token. */
-        post: operations["auth_authorise_create"];
+        /** Manager authorisation */
+        post: operations["auth_authorise"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/menu": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Full menu */
+        get: operations["menu_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/tables": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Floor tables */
+        get: operations["tables_list"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Open table session */
+        post: operations["sessions_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Open draft order */
+        post: operations["orders_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orders/{id}/items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add item to draft order */
+        post: operations["orders_items_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orders/{id}/submit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Submit order to kitchen */
+        post: operations["orders_submit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/guest/sessions/{qr_token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** QR guest session */
+        post: operations["guest_sessions_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/guest/menu": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Guest menu */
+        get: operations["guest_menu_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/guest/orders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Guest draft order */
+        post: operations["guest_orders_create"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/guest/orders/{id}/submit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Guest submit */
+        post: operations["guest_orders_submit"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Poll events */
+        get: operations["events_retrieve"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -89,94 +327,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/auth/pin": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description POST /auth/pin — device + staff PIN → staff JWT. */
-        post: operations["auth_pin_create"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/devices/enrol": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description POST /devices/enrol — exchange a one-time enrolment code for a device token. */
-        post: operations["devices_enrol_create"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/devices/me": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** @description GET /devices/me — device label, roles, staff list for the PIN pad. */
-        get: operations["devices_me_retrieve"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/events": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Poll events (SSE fallback)
-         * @description GET /api/v1/events?since=<seq>&limit=200 — polling fallback with the same envelopes as the stream.
-         */
-        get: operations["events_retrieve"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/guest/sessions/{qr_token}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** @description POST /guest/sessions/{qr_token} — guest phone via table QR; table must have an open session. */
-        post: operations["guest_sessions_create"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/guest/sessions/{session_id}": {
         parameters: {
             query?: never;
@@ -186,26 +336,6 @@ export interface paths {
         };
         /** @description GET /guest/sessions/{id} — guest may only read their own open session (404 otherwise). */
         get: operations["guest_sessions_retrieve"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/menu": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Full menu (categories → items → modifier groups → modifiers)
-         * @description GET /menu — full active menu tree with ETag / If-None-Match.
-         */
-        get: operations["menu_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -288,12 +418,98 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         PriceChangeInputRequest: {
             price_pesewas: number;
+        };
+        StaffSummary: {
+            /** Format: uuid */
+            id: string;
+            full_name: string;
+            /** @enum {string} */
+            role: "WAITER" | "KITCHEN" | "CASHIER" | "MANAGER" | "OWNER";
+            initials?: string;
+        };
+        DeviceMe: {
+            /** Format: uuid */
+            id: string;
+            label: string;
+            allowed_roles: string[];
+            staff: components["schemas"]["StaffSummary"][];
+        };
+        Modifier: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            price_pesewas: number;
+            is_default: boolean;
+            is_available: boolean;
+            sort_order: number;
+        };
+        ModifierGroup: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** @enum {string} */
+            selection: "ONE" | "MANY";
+            is_required: boolean;
+            sort_order: number;
+            modifiers: components["schemas"]["Modifier"][];
+        };
+        MenuItem: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            description?: string | null;
+            image_url?: string | null;
+            price_pesewas: number;
+            /** @enum {string} */
+            prep_station: "KITCHEN" | "GRILL" | "BAR";
+            is_available: boolean;
+            modifier_groups: components["schemas"]["ModifierGroup"][];
+        };
+        MenuCategory: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            sort_order: number;
+            items: components["schemas"]["MenuItem"][];
+        };
+        MenuResponse: {
+            categories: components["schemas"]["MenuCategory"][];
+        };
+        OpenSessionSummary: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: date-time */
+            opened_at?: string;
+            party_size?: number;
+            seated_minutes?: number;
+            bill_total_pesewas?: number;
+            paid_pesewas?: number;
+            order_count?: number;
+        } | null;
+        TableRow: {
+            /** Format: uuid */
+            id: string;
+            number: string;
+            seats?: number | null;
+            /** @enum {string} */
+            state_chip: "free" | "seated" | "ordered" | "food_ready" | "awaiting_payment";
+            open_session: components["schemas"]["OpenSessionSummary"];
+        };
+        Problem: {
+            type?: string;
+            title?: string;
+            status?: number;
+            code?: string;
+            detail?: string;
+            errors?: Record<string, never>;
+            retry_after_seconds?: number;
         };
     };
     responses: never;
@@ -304,15 +520,55 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
-    auth_authorise_create: {
+    devices_enrol: {
         parameters: {
             query?: never;
-            header: {
-                /** @description Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
-                "Idempotency-Key": string;
-                /** @description The device's clock at send time (ISO 8601). Stored for audit; never used for ordering. */
-                "X-Client-Time"?: string;
-                /** @description Enrolled device token. Required for every staff request. */
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    enrolment_code: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Device enrolled */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "device_id": "d0000000-0000-4000-8000-000000000099",
+                     *       "device_token": "mock-device-token-renzy-ws07",
+                     *       "allowed_roles": [
+                     *         "WAITER",
+                     *         "KITCHEN",
+                     *         "CASHIER",
+                     *         "MANAGER"
+                     *       ],
+                     *       "label": "Floor tablet 1"
+                     *     }
+                     */
+                    "application/json": {
+                        /** Format: uuid */
+                        device_id: string;
+                        device_token: string;
+                        allowed_roles: string[];
+                        label?: string;
+                    };
+                };
+            };
+        };
+    };
+    devices_me: {
+        parameters: {
+            query?: never;
+            header?: {
                 "X-Device-Token"?: string;
             };
             path?: never;
@@ -320,12 +576,630 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description No response body */
+            /** @description Device info */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    /**
+                     * @example {
+                     *       "id": "d0000000-0000-4000-8000-000000000099",
+                     *       "label": "Floor tablet 1",
+                     *       "allowed_roles": [
+                     *         "WAITER",
+                     *         "KITCHEN",
+                     *         "CASHIER",
+                     *         "MANAGER"
+                     *       ],
+                     *       "staff": [
+                     *         {
+                     *           "id": "b1000001-0001-4001-8001-000000000001",
+                     *           "full_name": "Kofi Mensah",
+                     *           "role": "WAITER",
+                     *           "initials": "KM"
+                     *         },
+                     *         {
+                     *           "id": "b1000002-0002-4002-8002-000000000002",
+                     *           "full_name": "Efua Mensah",
+                     *           "role": "WAITER",
+                     *           "initials": "EM"
+                     *         },
+                     *         {
+                     *           "id": "b1000003-0003-4003-8003-000000000003",
+                     *           "full_name": "Yaw Mensah",
+                     *           "role": "KITCHEN",
+                     *           "initials": "YM"
+                     *         },
+                     *         {
+                     *           "id": "b1000004-0004-4004-8004-000000000004",
+                     *           "full_name": "Ama Mensah",
+                     *           "role": "CASHIER",
+                     *           "initials": "AM"
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": components["schemas"]["DeviceMe"];
+                };
+            };
+        };
+    };
+    auth_pin: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-Device-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    staff_id: string;
+                    pin: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Session token */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "token": "mock-staff-jwt-ws07",
+                     *       "expires_at": "2026-09-15T21:00:00Z",
+                     *       "staff": {
+                     *         "id": "b1000002-0002-4002-8002-000000000002",
+                     *         "full_name": "Efua Mensah",
+                     *         "role": "WAITER",
+                     *         "initials": "EM"
+                     *       }
+                     *     }
+                     */
+                    "application/json": {
+                        token: string;
+                        /** Format: date-time */
+                        expires_at: string;
+                        staff: components["schemas"]["StaffSummary"];
+                    };
+                };
+            };
+            /** @description PIN locked */
+            423: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "type": "about:blank",
+                     *       "title": "Locked",
+                     *       "status": 423,
+                     *       "code": "pin_locked",
+                     *       "detail": "Too many failures",
+                     *       "errors": {},
+                     *       "retry_after_seconds": 900
+                     *     }
+                     */
+                    "application/json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    auth_authorise: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    pin: string;
+                    purpose: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Authorisation token */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "authorisation_token": "mock-auth-token-ws07",
+                     *       "expires_in": 60
+                     *     }
+                     */
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    menu_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Menu */
+            200: {
+                headers: {
+                    ETag?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "categories": [
+                     *         {
+                     *           "id": "c1000001-0001-4001-8001-000000000001",
+                     *           "name": "Mains",
+                     *           "sort_order": 0,
+                     *           "items": [
+                     *             {
+                     *               "id": "60c90854-cbda-59e0-81c2-326fdfc47793",
+                     *               "name": "Jollof Rice with Grilled Chicken",
+                     *               "description": "Long grain jollof, quarter chicken, salad",
+                     *               "image_url": null,
+                     *               "price_pesewas": 7500,
+                     *               "prep_station": "KITCHEN",
+                     *               "is_available": true,
+                     *               "modifier_groups": [
+                     *                 {
+                     *                   "id": "g1000001-0001-4001-8001-000000000001",
+                     *                   "name": "Pepper level",
+                     *                   "selection": "ONE",
+                     *                   "is_required": true,
+                     *                   "sort_order": 0,
+                     *                   "modifiers": [
+                     *                     {
+                     *                       "id": "m1000001-0001-4001-8001-000000000001",
+                     *                       "name": "Mild",
+                     *                       "price_pesewas": 0,
+                     *                       "is_default": true,
+                     *                       "is_available": true,
+                     *                       "sort_order": 0
+                     *                     },
+                     *                     {
+                     *                       "id": "m1000002-0002-4002-8002-000000000002",
+                     *                       "name": "Hot",
+                     *                       "price_pesewas": 0,
+                     *                       "is_default": false,
+                     *                       "is_available": true,
+                     *                       "sort_order": 1
+                     *                     }
+                     *                   ]
+                     *                 },
+                     *                 {
+                     *                   "id": "g1000002-0002-4002-8002-000000000002",
+                     *                   "name": "Add extras",
+                     *                   "selection": "MANY",
+                     *                   "is_required": false,
+                     *                   "sort_order": 1,
+                     *                   "modifiers": [
+                     *                     {
+                     *                       "id": "fcad2e62-ac05-5202-b259-69907ab3b43c",
+                     *                       "name": "Extra plantain",
+                     *                       "price_pesewas": 800,
+                     *                       "is_default": false,
+                     *                       "is_available": true,
+                     *                       "sort_order": 0
+                     *                     },
+                     *                     {
+                     *                       "id": "m1000004-0004-4004-8004-000000000004",
+                     *                       "name": "Extra shito",
+                     *                       "price_pesewas": 500,
+                     *                       "is_default": false,
+                     *                       "is_available": true,
+                     *                       "sort_order": 1
+                     *                     }
+                     *                   ]
+                     *                 }
+                     *               ]
+                     *             },
+                     *             {
+                     *               "id": "0f9cb040-bd96-558a-b146-512aa33c8c1b",
+                     *               "name": "Grilled Guinea Fowl",
+                     *               "description": "Half bird, charcoal grilled",
+                     *               "image_url": null,
+                     *               "price_pesewas": 15000,
+                     *               "prep_station": "GRILL",
+                     *               "is_available": false,
+                     *               "modifier_groups": []
+                     *             }
+                     *           ]
+                     *         },
+                     *         {
+                     *           "id": "c1000004-0004-4004-8004-000000000004",
+                     *           "name": "Drinks",
+                     *           "sort_order": 3,
+                     *           "items": [
+                     *             {
+                     *               "id": "d1000001-0001-4001-8001-000000000001",
+                     *               "name": "Club Beer",
+                     *               "description": "625ml, chilled",
+                     *               "image_url": null,
+                     *               "price_pesewas": 2500,
+                     *               "prep_station": "BAR",
+                     *               "is_available": true,
+                     *               "modifier_groups": []
+                     *             }
+                     *           ]
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": components["schemas"]["MenuResponse"];
+                };
+            };
+        };
+    };
+    tables_list: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Tables */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "tables": [
+                     *         {
+                     *           "id": "0d51acb8-5e6a-5646-9003-ec4053f729e6",
+                     *           "number": "7",
+                     *           "seats": 4,
+                     *           "state_chip": "free",
+                     *           "open_session": null
+                     *         },
+                     *         {
+                     *           "id": "t1000001-0001-4001-8001-000000000001",
+                     *           "number": "1",
+                     *           "seats": 4,
+                     *           "state_chip": "ordered",
+                     *           "open_session": {
+                     *             "id": "s1000001-0001-4001-8001-000000000001",
+                     *             "opened_at": "2026-09-14T18:00:00Z",
+                     *             "party_size": 2,
+                     *             "seated_minutes": 45,
+                     *             "bill_total_pesewas": 13300,
+                     *             "paid_pesewas": 0,
+                     *             "order_count": 1
+                     *           }
+                     *         },
+                     *         {
+                     *           "id": "t1000002-0002-4002-8002-000000000002",
+                     *           "number": "2",
+                     *           "seats": 4,
+                     *           "state_chip": "free",
+                     *           "open_session": null
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": {
+                        tables: components["schemas"]["TableRow"][];
+                    };
+                };
+            };
+        };
+    };
+    sessions_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    id: string;
+                    /** Format: uuid */
+                    table_id: string;
+                    party_size: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Session opened */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "id": "s2000000-0000-4000-8000-000000000007",
+                     *       "table_id": "0d51acb8-5e6a-5646-9003-ec4053f729e6",
+                     *       "party_size": 2,
+                     *       "opened_at": "2026-09-14T21:00:00Z"
+                     *     }
+                     */
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    orders_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    id: string;
+                    /** Format: uuid */
+                    session_id: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Order opened */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "id": "o2000000-0000-4000-8000-000000000001",
+                     *       "session_id": "s2000000-0000-4000-8000-000000000007",
+                     *       "status": "DRAFT"
+                     *     }
+                     */
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    orders_items_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    id: string;
+                    /** Format: uuid */
+                    menu_item_id: string;
+                    quantity: number;
+                    modifier_ids?: string[];
+                    notes?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Item added */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "id": "oi200000-0000-4000-8000-000000000001",
+                     *       "order_id": "o2000000-0000-4000-8000-000000000001",
+                     *       "name_snapshot": "Jollof Rice with Grilled Chicken",
+                     *       "unit_price_pesewas": 7500,
+                     *       "quantity": 1
+                     *     }
+                     */
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    orders_submit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Submitted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "id": "o2000000-0000-4000-8000-000000000001",
+                     *       "order_number": 1047,
+                     *       "status": "SUBMITTED",
+                     *       "total_pesewas": 8300
+                     *     }
+                     */
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    guest_sessions_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                qr_token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Guest token */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "token": "mock-guest-jwt-ws07",
+                     *       "session_id": "s2000000-0000-4000-8000-000000000007",
+                     *       "table_number": "7",
+                     *       "mode": "qr"
+                     *     }
+                     */
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    guest_menu_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Menu */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "categories": [
+                     *         {
+                     *           "id": "c1000001-0001-4001-8001-000000000001",
+                     *           "name": "Mains",
+                     *           "sort_order": 0,
+                     *           "items": [
+                     *             {
+                     *               "id": "60c90854-cbda-59e0-81c2-326fdfc47793",
+                     *               "name": "Jollof Rice with Grilled Chicken",
+                     *               "description": "Long grain jollof, quarter chicken, salad",
+                     *               "image_url": null,
+                     *               "price_pesewas": 7500,
+                     *               "prep_station": "KITCHEN",
+                     *               "is_available": true,
+                     *               "modifier_groups": []
+                     *             }
+                     *           ]
+                     *         }
+                     *       ]
+                     *     }
+                     */
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    guest_orders_create: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Order */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "id": "go200000-0000-4000-8000-000000000001",
+                     *       "status": "DRAFT"
+                     *     }
+                     */
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    guest_orders_submit: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Submitted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "id": "go200000-0000-4000-8000-000000000001",
+                     *       "status": "SUBMITTED"
+                     *     }
+                     */
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    events_retrieve: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Events */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    /**
+                     * @example {
+                     *       "events": []
+                     *     }
+                     */
+                    "application/json": unknown;
+                };
             };
         };
     };
@@ -425,131 +1299,6 @@ export interface operations {
             };
         };
     };
-    auth_pin_create: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
-                "Idempotency-Key": string;
-                /** @description The device's clock at send time (ISO 8601). Stored for audit; never used for ordering. */
-                "X-Client-Time"?: string;
-                /** @description Enrolled device token. Required for every staff request. */
-                "X-Device-Token"?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description No response body */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    devices_enrol_create: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
-                "Idempotency-Key": string;
-                /** @description The device's clock at send time (ISO 8601). Stored for audit; never used for ordering. */
-                "X-Client-Time"?: string;
-                /** @description Enrolled device token. Required for every staff request. */
-                "X-Device-Token"?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description No response body */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    devices_me_retrieve: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description Enrolled device token. Required for every staff request. */
-                "X-Device-Token"?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description No response body */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    events_retrieve: {
-        parameters: {
-            query?: {
-                /** @description Max events (default 200, max 1000). */
-                limit?: number;
-                /** @description Last seq seen. Returns events with seq > since. */
-                since?: number;
-            };
-            header?: {
-                /** @description Enrolled device token. Required for every staff request. */
-                "X-Device-Token"?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-        };
-    };
-    guest_sessions_create: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
-                "Idempotency-Key": string;
-                /** @description The device's clock at send time (ISO 8601). Stored for audit; never used for ordering. */
-                "X-Client-Time"?: string;
-            };
-            path: {
-                qr_token: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description No response body */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
     guest_sessions_retrieve: {
         parameters: {
             query?: never;
@@ -563,37 +1312,6 @@ export interface operations {
         responses: {
             /** @description No response body */
             200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    menu_get: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description Enrolled device token. Required for every staff request. */
-                "X-Device-Token"?: string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: unknown;
-                    };
-                };
-            };
-            /** @description No response body */
-            304: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -1,26 +1,25 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --ground: #0c1412; --surface: #141e1b; --surface-2: #1b2723; --surface-3: #25332e;
+  --line: #2c3a35; --ink: #e8efec; --ink-2: #afc0ba; --ink-3: #7e918b;
+  --accent: #4fbfa8; --accent-ink: #06211c; --accent-soft: #16332d; --accent-line: #2a5d53;
+  --warn: #e0a356; --danger: #ec8b84; --queue: #8fb0d4; --queue-line: #2e4560;
+  --guest-ground: #eaeeec; --guest-surface: #ffffff; --guest-surface-2: #f4f7f5;
+  --guest-ink: #101a17; --guest-ink-3: #6c7c77;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-background: var(--ground);
+  --color-foreground: var(--ink);
+  --font-sans: var(--font-archivo), "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-mono: var(--font-ibm-plex-mono), ui-monospace, Menlo, Consolas, monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
-}
+body { background: var(--ground); color: var(--ink); font-family: var(--font-sans); font-size: 15px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+.num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.staff-shell { background: var(--ground); color: var(--ink); min-height: 100vh; }
+.staff-theme { --ground: #0c1412; --surface: #141e1b; --surface-2: #1b2723; --surface-3: #25332e; --line: #2c3a35; --ink: #e8efec; --ink-2: #afc0ba; --ink-3: #7e918b; --accent: #4fbfa8; --accent-ink: #06211c; --accent-soft: #16332d; --accent-line: #2a5d53; --warn: #e0a356; --danger: #ec8b84; --queue: #8fb0d4; --queue-line: #2e4560; }
+.guest-theme { --ground: var(--guest-ground); --surface: var(--guest-surface); --surface-2: var(--guest-surface-2); --line: #d3dcd8; --ink: var(--guest-ink); --ink-2: #3c4c47; --ink-3: var(--guest-ink-3); --accent: #0b6e5f; --accent-ink: #ffffff; --accent-soft: #d8ede8; --accent-line: #8fc9be; background: var(--guest-ground); color: var(--guest-ink); min-height: 100vh; }
+button { font: inherit; color: inherit; cursor: pointer; }
+button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }

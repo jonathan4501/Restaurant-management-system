@@ -14,7 +14,7 @@ import { tokens } from "@/lib/auth/tokens";
 
 import type { paths } from "./schema";
 
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:4010";
 
 export const IDEMPOTENCY_HEADER = "Idempotency-Key";
 
