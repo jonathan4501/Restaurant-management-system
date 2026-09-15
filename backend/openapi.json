@@ -250,15 +250,16 @@ paths:
   /api/v1/events:
     get:
       operationId: events_retrieve
-      description: GET /api/v1/events?since=<seq>&limit=200 — polling fallback with
-        the same envelopes as the stream.
+      description: '`last_seq` is the highest seq scanned, including events this role
+        may not see — always send it back as `since`. `has_more` means call again
+        immediately.'
       summary: Poll events (SSE fallback)
       parameters:
       - in: query
         name: limit
         schema:
           type: integer
-        description: Max events (default 200, max 1000).
+        description: Max events scanned (default 200, max 1000).
       - in: query
         name: since
         schema:
