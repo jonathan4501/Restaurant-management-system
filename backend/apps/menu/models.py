@@ -4,13 +4,34 @@ from apps.core.money import PesewasField
 from apps.core.tenancy import TenantModel
 
 
+class MenuCacheInvalidatingMixin:
+    """Drop the GET /menu cache whenever a configuration row is written."""
+
+    def save(self, *args: object, **kwargs: object) -> None:
+        super().save(*args, **kwargs)  # type: ignore[misc]
+        from apps.menu.cache import invalidate_menu_cache
+
+        rid = getattr(self, "restaurant_id", None)
+        if rid is not None:
+            invalidate_menu_cache(rid)
+
+    def delete(self, *args: object, **kwargs: object) -> tuple[int, dict[str, int]]:
+        rid = getattr(self, "restaurant_id", None)
+        result = super().delete(*args, **kwargs)  # type: ignore[misc]
+        if rid is not None:
+            from apps.menu.cache import invalidate_menu_cache
+
+            invalidate_menu_cache(rid)
+        return result
+
+
 class PrepStation(models.TextChoices):
     KITCHEN = "KITCHEN"
     GRILL = "GRILL"
     BAR = "BAR"
 
 
-class MenuCategory(TenantModel):
+class MenuCategory(MenuCacheInvalidatingMixin, TenantModel):
     name = models.CharField(max_length=80)
     sort_order = models.IntegerField(default=0)
     is_active = models.BooleanField(default=True)
@@ -23,7 +44,7 @@ class MenuCategory(TenantModel):
         return self.name
 
 
-class MenuItem(TenantModel):
+class MenuItem(MenuCacheInvalidatingMixin, TenantModel):
     category = models.ForeignKey(MenuCategory, on_delete=models.PROTECT, related_name="items")
     name = models.CharField(max_length=120)
     description = models.TextField(blank=True, default="")
@@ -53,7 +74,7 @@ class MenuItem(TenantModel):
         return self.name
 
 
-class ModifierGroup(TenantModel):
+class ModifierGroup(MenuCacheInvalidatingMixin, TenantModel):
     class Selection(models.TextChoices):
         ONE = "ONE"
         MANY = "MANY"
@@ -72,7 +93,7 @@ class ModifierGroup(TenantModel):
         return self.name
 
 
-class Modifier(TenantModel):
+class Modifier(MenuCacheInvalidatingMixin, TenantModel):
     group = models.ForeignKey(ModifierGroup, on_delete=models.PROTECT, related_name="modifiers")
     name = models.CharField(max_length=80)
     price_pesewas = PesewasField(default=0, help_text="0 for free choices.")
@@ -94,7 +115,7 @@ class Modifier(TenantModel):
         return self.name
 
 
-class MenuItemModifierGroup(TenantModel):
+class MenuItemModifierGroup(MenuCacheInvalidatingMixin, TenantModel):
     menu_item = models.ForeignKey(MenuItem, on_delete=models.PROTECT, related_name="modifier_links")
     group = models.ForeignKey(ModifierGroup, on_delete=models.PROTECT, related_name="item_links")
     sort_order = models.IntegerField(default=0)

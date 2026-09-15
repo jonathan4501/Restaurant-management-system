@@ -2,15 +2,14 @@ openapi: 3.0.3
 info:
   title: RENZY API
   version: 1.0.0
-  description: Order and sales system for RENZY, Shiashi, Accra. All money fields
-    are integer pesewas (`*_pesewas`). Every POST requires an `Idempotency-Key` (UUIDv7).
-    Gross sales figures are 'Money taken' — gross cash through the till, not revenue.
+  description: Order and sales system for RENZY, Shiashi, Accra. All money fields are integer
+    pesewas (`*_pesewas`). Every POST requires an `Idempotency-Key` (UUIDv7). Gross sales
+    figures are 'Money taken' — gross cash through the till, not revenue.
 paths:
   /api/v1/auth/authorise:
     post:
       operationId: auth_authorise_create
-      description: POST /auth/authorise — manager/owner PIN → single-use authorisation
-        token.
+      description: POST /auth/authorise — manager/owner PIN → single-use authorisation token.
       tags:
       - auth
       security:
@@ -22,16 +21,16 @@ paths:
       - name: Idempotency-Key
         in: header
         required: true
-        description: 'Client-generated UUIDv7, unique per command. Replays return
-          the original response with `Idempotent-Replayed: true`.'
+        description: 'Client-generated UUIDv7, unique per command. Replays return the original
+          response with `Idempotent-Replayed: true`.'
         schema:
           type: string
           format: uuid
       - name: X-Client-Time
         in: header
         required: false
-        description: The device's clock at send time (ISO 8601). Stored for audit;
-          never used for ordering.
+        description: The device's clock at send time (ISO 8601). Stored for audit; never used
+          for ordering.
         schema:
           type: string
           format: date-time
@@ -57,16 +56,16 @@ paths:
       - name: Idempotency-Key
         in: header
         required: true
-        description: 'Client-generated UUIDv7, unique per command. Replays return
-          the original response with `Idempotent-Replayed: true`.'
+        description: 'Client-generated UUIDv7, unique per command. Replays return the original
+          response with `Idempotent-Replayed: true`.'
         schema:
           type: string
           format: uuid
       - name: X-Client-Time
         in: header
         required: false
-        description: The device's clock at send time (ISO 8601). Stored for audit;
-          never used for ordering.
+        description: The device's clock at send time (ISO 8601). Stored for audit; never used
+          for ordering.
         schema:
           type: string
           format: date-time
@@ -91,16 +90,16 @@ paths:
       - name: Idempotency-Key
         in: header
         required: true
-        description: 'Client-generated UUIDv7, unique per command. Replays return
-          the original response with `Idempotent-Replayed: true`.'
+        description: 'Client-generated UUIDv7, unique per command. Replays return the original
+          response with `Idempotent-Replayed: true`.'
         schema:
           type: string
           format: uuid
       - name: X-Client-Time
         in: header
         required: false
-        description: The device's clock at send time (ISO 8601). Stored for audit;
-          never used for ordering.
+        description: The device's clock at send time (ISO 8601). Stored for audit; never used
+          for ordering.
         schema:
           type: string
           format: date-time
@@ -141,16 +140,16 @@ paths:
       - name: Idempotency-Key
         in: header
         required: true
-        description: 'Client-generated UUIDv7, unique per command. Replays return
-          the original response with `Idempotent-Replayed: true`.'
+        description: 'Client-generated UUIDv7, unique per command. Replays return the original
+          response with `Idempotent-Replayed: true`.'
         schema:
           type: string
           format: uuid
       - name: X-Client-Time
         in: header
         required: false
-        description: The device's clock at send time (ISO 8601). Stored for audit;
-          never used for ordering.
+        description: The device's clock at send time (ISO 8601). Stored for audit; never used
+          for ordering.
         schema:
           type: string
           format: date-time
@@ -175,16 +174,16 @@ paths:
       - name: Idempotency-Key
         in: header
         required: true
-        description: 'Client-generated UUIDv7, unique per command. Replays return
-          the original response with `Idempotent-Replayed: true`.'
+        description: 'Client-generated UUIDv7, unique per command. Replays return the original
+          response with `Idempotent-Replayed: true`.'
         schema:
           type: string
           format: uuid
       - name: X-Client-Time
         in: header
         required: false
-        description: The device's clock at send time (ISO 8601). Stored for audit;
-          never used for ordering.
+        description: The device's clock at send time (ISO 8601). Stored for audit; never used
+          for ordering.
         schema:
           type: string
           format: date-time
@@ -197,8 +196,7 @@ paths:
   /api/v1/devices/enrol:
     post:
       operationId: devices_enrol_create
-      description: POST /devices/enrol — exchange a one-time enrolment code for a
-        device token.
+      description: POST /devices/enrol — exchange a one-time enrolment code for a device token.
       tags:
       - devices
       security:
@@ -210,16 +208,16 @@ paths:
       - name: Idempotency-Key
         in: header
         required: true
-        description: 'Client-generated UUIDv7, unique per command. Replays return
-          the original response with `Idempotent-Replayed: true`.'
+        description: 'Client-generated UUIDv7, unique per command. Replays return the original
+          response with `Idempotent-Replayed: true`.'
         schema:
           type: string
           format: uuid
       - name: X-Client-Time
         in: header
         required: false
-        description: The device's clock at send time (ISO 8601). Stored for audit;
-          never used for ordering.
+        description: The device's clock at send time (ISO 8601). Stored for audit; never used
+          for ordering.
         schema:
           type: string
           format: date-time
@@ -250,8 +248,8 @@ paths:
   /api/v1/events:
     get:
       operationId: events_retrieve
-      description: GET /api/v1/events?since=<seq>&limit=200 — polling fallback with
-        the same envelopes as the stream.
+      description: GET /api/v1/events?since=<seq>&limit=200 — polling fallback with the same
+        envelopes as the stream.
       summary: Poll events (SSE fallback)
       parameters:
       - in: query
@@ -285,8 +283,8 @@ paths:
   /api/v1/guest/sessions/{qr_token}:
     post:
       operationId: guest_sessions_create
-      description: POST /guest/sessions/{qr_token} — guest phone via table QR; table
-        must have an open session.
+      description: POST /guest/sessions/{qr_token} — guest phone via table QR; table must
+        have an open session.
       parameters:
       - in: path
         name: qr_token
@@ -296,16 +294,16 @@ paths:
       - name: Idempotency-Key
         in: header
         required: true
-        description: 'Client-generated UUIDv7, unique per command. Replays return
-          the original response with `Idempotent-Replayed: true`.'
+        description: 'Client-generated UUIDv7, unique per command. Replays return the original
+          response with `Idempotent-Replayed: true`.'
         schema:
           type: string
           format: uuid
       - name: X-Client-Time
         in: header
         required: false
-        description: The device's clock at send time (ISO 8601). Stored for audit;
-          never used for ordering.
+        description: The device's clock at send time (ISO 8601). Stored for audit; never used
+          for ordering.
         schema:
           type: string
           format: date-time
@@ -319,8 +317,8 @@ paths:
   /api/v1/guest/sessions/{session_id}:
     get:
       operationId: guest_sessions_retrieve
-      description: GET /guest/sessions/{id} — guest may only read their own open session
-        (404 otherwise).
+      description: GET /guest/sessions/{id} — guest may only read their own open session (404
+        otherwise).
       parameters:
       - in: path
         name: session_id
@@ -333,11 +331,183 @@ paths:
       responses:
         '200':
           description: No response body
+  /api/v1/menu:
+    get:
+      operationId: menu_get
+      description: GET /menu — full active menu tree with ETag / If-None-Match.
+      summary: Full menu (categories → items → modifier groups → modifiers)
+      tags:
+      - menu
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+        '304':
+          description: No response body
+      parameters:
+      - name: X-Device-Token
+        in: header
+        required: false
+        description: Enrolled device token. Required for every staff request.
+        schema:
+          type: string
+  /api/v1/menu/items/{item_id}/86:
+    post:
+      operationId: menu_item_86
+      summary: 86 a menu item (mark unavailable)
+      parameters:
+      - in: path
+        name: item_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - name: Idempotency-Key
+        in: header
+        required: true
+        description: 'Client-generated UUIDv7, unique per command. Replays return the original
+          response with `Idempotent-Replayed: true`.'
+        schema:
+          type: string
+          format: uuid
+      - name: X-Client-Time
+        in: header
+        required: false
+        description: The device's clock at send time (ISO 8601). Stored for audit; never used
+          for ordering.
+        schema:
+          type: string
+          format: date-time
+      - name: X-Device-Token
+        in: header
+        required: false
+        description: Enrolled device token. Required for every staff request.
+        schema:
+          type: string
+      tags:
+      - menu
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/menu/items/{item_id}/price:
+    post:
+      operationId: menu_item_price
+      description: 'POST /menu/items/{id}/price.
+
+
+        During service hours, requires manager authorisation with purpose
+
+        PRICE_CHANGE_IN_SERVICE. Outside service hours, no authorisation block.'
+      summary: Change a menu item price (auth required during service)
+      parameters:
+      - in: path
+        name: item_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - name: Idempotency-Key
+        in: header
+        required: true
+        description: 'Client-generated UUIDv7, unique per command. Replays return the original
+          response with `Idempotent-Replayed: true`.'
+        schema:
+          type: string
+          format: uuid
+      - name: X-Client-Time
+        in: header
+        required: false
+        description: The device's clock at send time (ISO 8601). Stored for audit; never used
+          for ordering.
+        schema:
+          type: string
+          format: date-time
+      - name: X-Device-Token
+        in: header
+        required: false
+        description: Enrolled device token. Required for every staff request.
+        schema:
+          type: string
+      tags:
+      - menu
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PriceChangeInputRequest'
+        required: true
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/menu/items/{item_id}/restore:
+    post:
+      operationId: menu_item_restore
+      summary: Restore an 86'd menu item
+      parameters:
+      - in: path
+        name: item_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - name: Idempotency-Key
+        in: header
+        required: true
+        description: 'Client-generated UUIDv7, unique per command. Replays return the original
+          response with `Idempotent-Replayed: true`.'
+        schema:
+          type: string
+          format: uuid
+      - name: X-Client-Time
+        in: header
+        required: false
+        description: The device's clock at send time (ISO 8601). Stored for audit; never used
+          for ordering.
+        schema:
+          type: string
+          format: date-time
+      - name: X-Device-Token
+        in: header
+        required: false
+        description: Enrolled device token. Required for every staff request.
+        schema:
+          type: string
+      tags:
+      - menu
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
   /api/v1/sessions/{session_id}/guest-token:
     post:
       operationId: sessions_guest_token_create
-      description: POST /sessions/{id}/guest-token — waiter hands the tablet to the
-        guest.
+      description: POST /sessions/{id}/guest-token — waiter hands the tablet to the guest.
       parameters:
       - in: path
         name: session_id
@@ -348,16 +518,16 @@ paths:
       - name: Idempotency-Key
         in: header
         required: true
-        description: 'Client-generated UUIDv7, unique per command. Replays return
-          the original response with `Idempotent-Replayed: true`.'
+        description: 'Client-generated UUIDv7, unique per command. Replays return the original
+          response with `Idempotent-Replayed: true`.'
         schema:
           type: string
           format: uuid
       - name: X-Client-Time
         in: header
         required: false
-        description: The device's clock at send time (ISO 8601). Stored for audit;
-          never used for ordering.
+        description: The device's clock at send time (ISO 8601). Stored for audit; never used
+          for ordering.
         schema:
           type: string
           format: date-time
@@ -382,3 +552,12 @@ components:
       bearerFormat: JWT
       description: Staff JWT (with X-Device-Token) or guest JWT. See docs/09-api-contract.md
         §1.
+  schemas:
+    PriceChangeInputRequest:
+      type: object
+      properties:
+        price_pesewas:
+          type: integer
+          minimum: 0
+      required:
+      - price_pesewas
