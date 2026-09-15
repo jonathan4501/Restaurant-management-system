@@ -9,6 +9,7 @@ class FloorConfig(AppConfig):
     def ready(self) -> None:
         from apps.core.projections import register_projection_model
 
+        from . import projector  # noqa: F401
         from .models import TableSession
 
         register_projection_model(TableSession)

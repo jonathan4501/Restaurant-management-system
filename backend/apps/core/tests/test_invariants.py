@@ -130,7 +130,10 @@ def test_order_events_rejects_update_and_delete(restaurant, make_ctx) -> None:
         return CommandOutcome(
             events=[
                 EventDraft(
-                    AggregateType.SESSION, uuid7(), EventType.SESSION_OPENED, {"table_number": "1"}
+                    AggregateType.STAFF,
+                    uuid7(),
+                    EventType.MANAGER_AUTHORISED,
+                    {"purpose": "DISCOUNT", "for_device_id": None},
                 )
             ],
             response={},
@@ -149,7 +152,7 @@ def test_order_events_rejects_update_and_delete(restaurant, make_ctx) -> None:
         event.payload = {"tampered": True}
         event.save()
 
-    assert OrderEvent.objects.get().payload == {"table_number": "1"}
+    assert OrderEvent.objects.get().payload == {"purpose": "DISCOUNT", "for_device_id": None}
 
 
 # Event vocabulary and payload classes stay in step.

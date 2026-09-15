@@ -41,3 +41,8 @@ def percent_of(amount_pesewas: int, percent: int) -> int:
         Decimal(1), rounding=ROUND_HALF_UP
     )
     return int(value)
+
+
+def apply_percent_discount(subtotal_pesewas: int, percent: int) -> int:
+    """Discount amount for a percent off the subtotal. Half-up; Decimal stays inside percent_of."""
+    return percent_of(subtotal_pesewas, percent)
