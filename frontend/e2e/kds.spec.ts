@@ -39,6 +39,22 @@ test("a new ticket is accepted with one tap", async ({ page }) => {
   expect(request.headers()["idempotency-key"]).toBeTruthy();
 });
 
+test("the card moves the moment it is tapped, outlined until the server agrees", async ({ page }) => {
+  // Hold the ack open: what the cook sees while the command is in flight is the point of the test.
+  await page.route("**/orders/o-1001/ack", async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 1_500));
+    await route.fulfill({ status: 200, contentType: "application/json", body: "{}" });
+  });
+
+  await page.goto("/kds");
+  await expect(page.getByTestId("column-SUBMITTED").getByTestId("ticket-1001")).toBeVisible();
+  await page.getByTestId("ack-1001").click();
+
+  const moved = page.getByTestId("column-PREPARING").getByTestId("ticket-1001");
+  await expect(moved).toBeVisible();
+  await expect(moved).toHaveAttribute("data-pending", "true");
+});
+
 test("the grill cook sees only grill lines", async ({ page }) => {
   await page.goto("/kds");
   const grillRequest = page.waitForRequest((r) => r.url().includes("station=GRILL"));

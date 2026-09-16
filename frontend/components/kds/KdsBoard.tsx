@@ -7,6 +7,14 @@ import { EightySixSheet } from "@/components/kds/EightySixSheet";
 import { TicketCard } from "@/components/kds/TicketCard";
 import { api } from "@/lib/api/client";
 import type { KdsTicket, TicketLine } from "@/lib/domain";
+import {
+  ackTicket,
+  markAllReady,
+  markLineReady,
+  patchTicket,
+  removeTicket,
+  serverNowIso,
+} from "@/lib/kds/board";
 import { useEventStream } from "@/lib/realtime/useEventStream";
 import { useStaff } from "@/lib/stores/staff";
 
@@ -21,10 +29,9 @@ const COLUMNS: { key: KdsTicket["status"]; label: string }[] = [
 ];
 
 /** A short chime. Browsers block autoplay until the cook has tapped once, hence the enable button. */
-function useChime(enabled: boolean) {
+function useChime() {
   const context = useRef<AudioContext | null>(null);
   return useCallback(() => {
-    if (!enabled) return;
     try {
       context.current ??= new AudioContext();
       const ctx = context.current;
@@ -40,7 +47,7 @@ function useChime(enabled: boolean) {
     } catch {
       /* no audio device, or the browser said no — the screen still works */
     }
-  }, [enabled]);
+  }, []);
 }
 
 export function KdsBoard() {
@@ -52,7 +59,7 @@ export function KdsBoard() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [pending, setPending] = useState<Record<string, boolean>>({});
-  const chime = useChime(soundOn);
+  const chime = useChime();
 
   useEffect(() => {
     try {
@@ -76,7 +83,7 @@ export function KdsBoard() {
 
   const stream = useEventStream({
     onEvent: (envelope) => {
-      if (envelope.type === "ORDER_SUBMITTED") chime();
+      if (soundOn && envelope.type === "ORDER_SUBMITTED") chime();
     },
   });
 
@@ -92,56 +99,88 @@ export function KdsBoard() {
     refetchInterval: stream.state === "live" ? false : 10_000,
   });
 
+  /**
+   * Move the card now, keep it outlined as pending, then let the read (or the stream) settle it.
+   * The command itself is idempotent — lib/api/client adds an Idempotency-Key to every POST — so a
+   * double tap on a slow connection cannot ack twice.
+   */
   const command = useCallback(
-    async (orderId: string, run: () => Promise<{ error?: unknown }>) => {
+    async (
+      orderId: string,
+      optimistic: (rows: KdsTicket[]) => KdsTicket[],
+      run: () => Promise<{ error?: unknown }>,
+    ) => {
       setPending((p) => ({ ...p, [orderId]: true }));
+      queryClient.setQueryData<KdsTicket[]>(["kds", station], (rows) =>
+        rows ? optimistic(rows) : rows,
+      );
       try {
         const { error } = await run();
         if (error) setToast("That did not go through. Try again.");
+      } catch {
+        setToast("That did not go through. Try again.");
       } finally {
+        await queryClient.invalidateQueries({ queryKey: ["kds"] });
         setPending((p) => ({ ...p, [orderId]: false }));
-        void queryClient.invalidateQueries({ queryKey: ["kds"] });
       }
     },
-    [queryClient],
+    [queryClient, station],
   );
 
   const onAck = useCallback(
-    (ticket: KdsTicket) =>
-      void command(ticket.order_id, () =>
-        api.POST("/api/v1/orders/{order_id}/ack", {
-          params: { path: { order_id: ticket.order_id } },
-        }),
-      ),
-    [command],
+    (ticket: KdsTicket) => {
+      const at = serverNowIso(stream.serverOffsetMs);
+      void command(
+        ticket.order_id,
+        (rows) => patchTicket(rows, ticket.order_id, (t) => ackTicket(t, at)),
+        () =>
+          api.POST("/api/v1/orders/{order_id}/ack", {
+            params: { path: { order_id: ticket.order_id } },
+          }),
+      );
+    },
+    [command, stream.serverOffsetMs],
   );
 
   const onAllReady = useCallback(
-    (ticket: KdsTicket) =>
-      void command(ticket.order_id, () =>
-        api.POST("/api/v1/orders/{order_id}/ready", {
-          params: { path: { order_id: ticket.order_id } },
-        }),
-      ),
-    [command],
+    (ticket: KdsTicket) => {
+      const at = serverNowIso(stream.serverOffsetMs);
+      void command(
+        ticket.order_id,
+        (rows) => patchTicket(rows, ticket.order_id, (t) => markAllReady(t, at)),
+        () =>
+          api.POST("/api/v1/orders/{order_id}/ready", {
+            params: { path: { order_id: ticket.order_id } },
+          }),
+      );
+    },
+    [command, stream.serverOffsetMs],
   );
 
   const onLineReady = useCallback(
-    (ticket: KdsTicket, line: TicketLine) =>
-      void command(ticket.order_id, () =>
-        api.POST("/api/v1/orders/{order_id}/items/{item_id}/ready", {
-          params: { path: { order_id: ticket.order_id, item_id: line.item_id } },
-        }),
-      ),
-    [command],
+    (ticket: KdsTicket, line: TicketLine) => {
+      const at = serverNowIso(stream.serverOffsetMs);
+      void command(
+        ticket.order_id,
+        (rows) => patchTicket(rows, ticket.order_id, (t) => markLineReady(t, line.item_id, at)),
+        () =>
+          api.POST("/api/v1/orders/{order_id}/items/{item_id}/ready", {
+            params: { path: { order_id: ticket.order_id, item_id: line.item_id } },
+          }),
+      );
+    },
+    [command, stream.serverOffsetMs],
   );
 
   const onServed = useCallback(
     (ticket: KdsTicket) =>
-      void command(ticket.order_id, () =>
-        api.POST("/api/v1/orders/{order_id}/serve", {
-          params: { path: { order_id: ticket.order_id } },
-        }),
+      void command(
+        ticket.order_id,
+        (rows) => removeTicket(rows, ticket.order_id),
+        () =>
+          api.POST("/api/v1/orders/{order_id}/serve", {
+            params: { path: { order_id: ticket.order_id } },
+          }),
       ),
     [command],
   );
@@ -202,16 +241,23 @@ export function KdsBoard() {
           >
             {stream.state === "live" ? "Live" : stream.state === "polling" ? "Catching up" : stream.state}
           </span>
-          {!soundOn ? (
-            <button
-              type="button"
-              data-testid="kds-sound"
-              onClick={() => setSoundOn(true)}
-              className="min-h-14 rounded-lg border border-[var(--line)] px-4 text-lg"
-            >
-              Sound off
-            </button>
-          ) : null}
+          <button
+            type="button"
+            data-testid="kds-sound"
+            aria-pressed={soundOn}
+            onClick={() => {
+              const next = !soundOn;
+              setSoundOn(next);
+              if (next) chime(); // the tap is the gesture the browser wants, and it proves it works
+            }}
+            className={`min-h-14 rounded-lg border px-4 text-lg ${
+              soundOn
+                ? "border-[var(--accent-line)] text-[var(--accent)]"
+                : "border-[var(--line)] text-[var(--ink-3)]"
+            }`}
+          >
+            {soundOn ? "Chime on" : "Chime off"}
+          </button>
           <button
             type="button"
             data-testid="kds-86"

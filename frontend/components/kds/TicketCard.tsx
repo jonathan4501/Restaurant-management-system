@@ -44,6 +44,7 @@ export function TicketCard({
       data-testid={`ticket-${ticket.order_number}`}
       data-urgency={urgency}
       data-status={ticket.status}
+      data-pending={pending}
       className={`rounded-xl border-2 bg-[var(--surface)] ${BORDER[urgency]} ${pending ? "opacity-60 outline-dashed outline-2 outline-[var(--accent-line)]" : ""}`}
     >
       <header className="flex items-baseline justify-between gap-3 border-b border-[var(--line)] px-4 py-3">

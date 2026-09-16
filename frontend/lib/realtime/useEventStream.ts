@@ -89,6 +89,7 @@ export function useEventStream({ onEvent, onResync, enabled = true }: Options = 
   useEffect(() => {
     if (!enabled) return;
     let stopped = false;
+    let polling = false;
     let pollTimer: ReturnType<typeof setTimeout> | null = null;
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
     let controller: AbortController | null = null;
@@ -99,8 +100,16 @@ export function useEventStream({ onEvent, onResync, enabled = true }: Options = 
       failures.current = 0;
     };
 
+    const stopPolling = () => {
+      polling = false;
+      if (pollTimer) {
+        clearTimeout(pollTimer);
+        pollTimer = null;
+      }
+    };
+
     async function poll(): Promise<void> {
-      if (stopped) return;
+      if (stopped || !polling) return;
       try {
         const response = await fetch(
           `${API_BASE_URL}/api/v1/events?since=${lastSeq.current}&limit=200`,
@@ -128,8 +137,15 @@ export function useEventStream({ onEvent, onResync, enabled = true }: Options = 
           setState("offline");
         }
       }
-      if (!stopped) pollTimer = setTimeout(() => void poll(), POLL_INTERVAL_MS);
+      if (!stopped && polling) pollTimer = setTimeout(() => void poll(), POLL_INTERVAL_MS);
     }
+
+    const startPolling = () => {
+      if (polling) return; // one poll loop, however many times the stream has failed
+      polling = true;
+      setState("polling");
+      void poll();
+    };
 
     async function readStream(): Promise<void> {
       if (stopped) return;
@@ -155,6 +171,7 @@ export function useEventStream({ onEvent, onResync, enabled = true }: Options = 
 
         setOffset(serverOffsetMs(response.headers.get("Date")));
         markContact();
+        stopPolling(); // the stream is back; two pollers would double-count nothing but bandwidth
         setState("live");
 
         const reader = response.body.getReader();
@@ -190,8 +207,7 @@ export function useEventStream({ onEvent, onResync, enabled = true }: Options = 
         }
         // Two failures in a row: stop hammering the stream, poll instead and retry it slowly.
         if (failures.current >= 2) {
-          if (state !== "polling") setState("polling");
-          void poll();
+          startPolling();
           retryTimer = setTimeout(() => void readStream(), STREAM_RETRY_MS);
           return;
         }
@@ -208,8 +224,6 @@ export function useEventStream({ onEvent, onResync, enabled = true }: Options = 
       if (pollTimer) clearTimeout(pollTimer);
       if (retryTimer) clearTimeout(retryTimer);
     };
-    // `state` is read only to avoid a redundant setState; re-subscribing on it would loop.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [enabled, deliver, signedOut, queryClient]);
 
   return { state, lastSeq: lastSeq.current, serverOffsetMs: offset, stale };
