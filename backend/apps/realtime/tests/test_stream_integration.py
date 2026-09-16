@@ -209,6 +209,30 @@ def test_gap_longer_than_one_batch_sends_resync_at_head(restaurant, make_ctx, se
 
 
 @pytest.mark.django_db(transaction=True)
+def test_stream_connect_touches_device_last_seen_at(restaurant, waiter, device) -> None:
+    """WS04 §4: connect updates last_seen_at (throttled in accounts._touch_device to once/min)."""
+    dev, token = device
+    Device.objects.unscoped().filter(pk=dev.pk).update(last_seen_at=None)
+    jwt = issue_staff_token(
+        staff_id=waiter.id, role="WAITER", restaurant_id=restaurant.id, device_id=dev.id
+    )
+    request = AsyncRequestFactory().get(
+        "/api/v1/stream", headers={"X-Device-Token": token, "Authorization": f"Bearer {jwt}"}
+    )
+
+    async def scenario() -> None:
+        response = await stream(request)
+        assert response.status_code == 200
+        body = response.streaming_content.__aiter__()  # type: ignore[union-attr]
+        await take(body, 0.2)
+        await body.aclose()
+
+    asyncio.run(scenario())
+    refreshed = Device.objects.unscoped().get(pk=dev.pk)
+    assert refreshed.last_seen_at is not None
+
+
+@pytest.mark.django_db(transaction=True)
 def test_revoked_device_mid_stream_gets_auth_expired_and_eof(restaurant, waiter, device) -> None:
     dev, token = device
     jwt = issue_staff_token(
