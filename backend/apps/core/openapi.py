@@ -3,13 +3,16 @@
 from typing import Any
 
 from drf_spectacular.extensions import OpenApiAuthenticationExtension
+from drf_spectacular.openapi import AutoSchema
 
 IDEMPOTENCY_HEADER = {
     "name": "Idempotency-Key",
     "in": "header",
-    "required": True,
-    "description": "Client-generated UUIDv7, unique per command. Replays return the original response "
-    "with `Idempotent-Replayed: true`.",
+    # The server rejects a command without it (400 idempotency_key_missing). Marked optional here only
+    # because the typed client adds it in middleware (frontend/lib/api/client.ts), not per call.
+    "required": False,
+    "description": "**Required by the server.** Client-generated UUIDv7, unique per command. Replays "
+    "return the original response with `Idempotent-Replayed: true`.",
     "schema": {"type": "string", "format": "uuid"},
 }
 CLIENT_TIME_HEADER = {
@@ -43,6 +46,16 @@ def add_standard_headers(
             if not path.startswith("/api/v1/guest") and "X-Device-Token" not in names:
                 params.append(DEVICE_HEADER)
     return result
+
+
+class CommandAutoSchema(AutoSchema):
+    """Document a CommandView's `input_serializer` as its request body without a per-view decorator."""
+
+    def get_request_serializer(self) -> Any:
+        declared = getattr(self.view, "input_serializer", None)
+        if self.method == "POST" and declared is not None:
+            return declared
+        return super().get_request_serializer()
 
 
 class PrincipalAuthScheme(OpenApiAuthenticationExtension):

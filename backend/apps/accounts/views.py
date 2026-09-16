@@ -195,24 +195,34 @@ class EnrolDeviceView(CommandView):
 
 
 class DeviceMeView(APIView):
-    """GET /devices/me — device label, roles, staff list for the PIN pad."""
+    """
+    GET /devices/me — device label, roles, staff list for the PIN pad.
 
-    permission_classes = [RolePermission]
-    allowed_roles = tuple(STAFF_ROLES)
+    Answers to the device token alone: the PIN pad needs the staff list before anyone has signed in.
+    A staff bearer, if sent, must still be valid (a revoked or foreign token is 401). Guests are 403.
+    """
+
+    permission_classes = [AllowAny]
 
     def get(self, request: Request) -> Response:
-        principal = current_principal(request)
-        if principal.device_id is None:
-            raise ApiError(401, ErrorCode.DEVICE_UNKNOWN, "Device is required.")
-        device = Device.objects.filter(pk=principal.device_id).first()
+        principal = getattr(request._request, "principal", None)
+        if principal is not None and principal.actor_role == ActorRole.GUEST:
+            raise ApiError(
+                403, ErrorCode.ROLE_NOT_ALLOWED, "This role may not perform this action."
+            )
+        try:
+            device = device_from_request(request._request)
+        except AuthError as err:
+            raise ApiError(401, err.code, err.detail) from err
         if device is None:
-            raise ApiError(401, ErrorCode.DEVICE_UNKNOWN, "Device is not enrolled.")
+            raise ApiError(401, ErrorCode.DEVICE_UNKNOWN, "Device is required.")
 
-        staff_rows = (
-            Staff.objects.filter(is_active=True, role__in=device.allowed_roles)
-            .order_by("full_name")
-            .values("id", "full_name", "role")
-        )
+        with restaurant_context(device.restaurant_id):
+            staff_rows = list(
+                Staff.objects.filter(is_active=True, role__in=device.allowed_roles)
+                .order_by("full_name")
+                .values("id", "full_name", "role")
+            )
         return Response(
             {
                 "device_id": str(device.id),
@@ -598,6 +608,7 @@ class QrGuestSessionView(CommandView):
                         "token": token,
                         "expires_in": settings.GUEST_TOKEN_TTL_SECONDS,
                         "session_id": str(session.id),
+                        "table_number": table.number,
                         "mode": "qr",
                     },
                 ),

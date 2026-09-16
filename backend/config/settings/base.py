@@ -136,7 +136,7 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": ["apps.core.permissions.RolePermission"],
     "DEFAULT_RENDERER_CLASSES": ["rest_framework.renderers.JSONRenderer"],
     "DEFAULT_PARSER_CLASSES": ["rest_framework.parsers.JSONParser"],
-    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    "DEFAULT_SCHEMA_CLASS": "apps.core.openapi.CommandAutoSchema",
     "EXCEPTION_HANDLER": "apps.core.errors.exception_handler",
     "UNAUTHENTICATED_USER": None,
     "DEFAULT_THROTTLE_RATES": {"guest": "60/min"},

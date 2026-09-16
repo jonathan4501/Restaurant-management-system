@@ -13,6 +13,12 @@ paths:
         token.
       tags:
       - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthoriseInputRequest'
+        required: true
       security:
       - bearerAuth: []
       responses:
@@ -21,9 +27,10 @@ paths:
       parameters:
       - name: Idempotency-Key
         in: header
-        required: true
-        description: 'Client-generated UUIDv7, unique per command. Replays return
-          the original response with `Idempotent-Replayed: true`.'
+        required: false
+        description: '**Required by the server.** Client-generated UUIDv7, unique
+          per command. Replays return the original response with `Idempotent-Replayed:
+          true`.'
         schema:
           type: string
           format: uuid
@@ -56,9 +63,10 @@ paths:
       parameters:
       - name: Idempotency-Key
         in: header
-        required: true
-        description: 'Client-generated UUIDv7, unique per command. Replays return
-          the original response with `Idempotent-Replayed: true`.'
+        required: false
+        description: '**Required by the server.** Client-generated UUIDv7, unique
+          per command. Replays return the original response with `Idempotent-Replayed:
+          true`.'
         schema:
           type: string
           format: uuid
@@ -90,9 +98,10 @@ paths:
       parameters:
       - name: Idempotency-Key
         in: header
-        required: true
-        description: 'Client-generated UUIDv7, unique per command. Replays return
-          the original response with `Idempotent-Replayed: true`.'
+        required: false
+        description: '**Required by the server.** Client-generated UUIDv7, unique
+          per command. Replays return the original response with `Idempotent-Replayed:
+          true`.'
         schema:
           type: string
           format: uuid
@@ -140,9 +149,10 @@ paths:
       parameters:
       - name: Idempotency-Key
         in: header
-        required: true
-        description: 'Client-generated UUIDv7, unique per command. Replays return
-          the original response with `Idempotent-Replayed: true`.'
+        required: false
+        description: '**Required by the server.** Client-generated UUIDv7, unique
+          per command. Replays return the original response with `Idempotent-Replayed:
+          true`.'
         schema:
           type: string
           format: uuid
@@ -166,6 +176,12 @@ paths:
       description: POST /auth/pin — device + staff PIN → staff JWT.
       tags:
       - auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PinLoginInputRequest'
+        required: true
       security:
       - {}
       responses:
@@ -174,9 +190,10 @@ paths:
       parameters:
       - name: Idempotency-Key
         in: header
-        required: true
-        description: 'Client-generated UUIDv7, unique per command. Replays return
-          the original response with `Idempotent-Replayed: true`.'
+        required: false
+        description: '**Required by the server.** Client-generated UUIDv7, unique
+          per command. Replays return the original response with `Idempotent-Replayed:
+          true`.'
         schema:
           type: string
           format: uuid
@@ -194,6 +211,30 @@ paths:
         description: Enrolled device token. Required for every staff request.
         schema:
           type: string
+  /api/v1/bills/open:
+    get:
+      operationId: bills_open
+      description: 'GET /bills/open — the cashier''s board: what is still owing, and
+        what can be paid yet.'
+      tags:
+      - bills
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+      parameters:
+      - name: X-Device-Token
+        in: header
+        required: false
+        description: Enrolled device token. Required for every staff request.
+        schema:
+          type: string
   /api/v1/devices/enrol:
     post:
       operationId: devices_enrol_create
@@ -201,6 +242,12 @@ paths:
         device token.
       tags:
       - devices
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EnrolDeviceInputRequest'
+        required: true
       security:
       - {}
       responses:
@@ -209,9 +256,10 @@ paths:
       parameters:
       - name: Idempotency-Key
         in: header
-        required: true
-        description: 'Client-generated UUIDv7, unique per command. Replays return
-          the original response with `Idempotent-Replayed: true`.'
+        required: false
+        description: '**Required by the server.** Client-generated UUIDv7, unique
+          per command. Replays return the original response with `Idempotent-Replayed:
+          true`.'
         schema:
           type: string
           format: uuid
@@ -232,11 +280,16 @@ paths:
   /api/v1/devices/me:
     get:
       operationId: devices_me_retrieve
-      description: GET /devices/me — device label, roles, staff list for the PIN pad.
+      description: |-
+        GET /devices/me — device label, roles, staff list for the PIN pad.
+
+        Answers to the device token alone: the PIN pad needs the staff list before anyone has signed in.
+        A staff bearer, if sent, must still be valid (a revoked or foreign token is 401). Guests are 403.
       tags:
       - devices
       security:
       - bearerAuth: []
+      - {}
       responses:
         '200':
           description: No response body
@@ -283,20 +336,46 @@ paths:
                 type: object
                 additionalProperties: {}
           description: ''
+  /api/v1/guest/menu:
+    get:
+      operationId: guest_menu_get
+      description: GET /guest/menu — the same menu on the sandboxed guest router (guest
+        token only, throttled).
+      summary: Full menu for a guest token
+      tags:
+      - guest
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+        '304':
+          description: No response body
+      parameters: []
   /api/v1/guest/orders:
     post:
       operationId: guest_orders_create
       tags:
       - guest
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OpenOrderInputRequest'
+        required: true
       responses:
         '200':
           description: No response body
       parameters:
       - name: Idempotency-Key
         in: header
-        required: true
-        description: 'Client-generated UUIDv7, unique per command. Replays return
-          the original response with `Idempotent-Replayed: true`.'
+        required: false
+        description: '**Required by the server.** Client-generated UUIDv7, unique
+          per command. Replays return the original response with `Idempotent-Replayed:
+          true`.'
         schema:
           type: string
           format: uuid
@@ -335,9 +414,10 @@ paths:
         required: true
       - name: Idempotency-Key
         in: header
-        required: true
-        description: 'Client-generated UUIDv7, unique per command. Replays return
-          the original response with `Idempotent-Replayed: true`.'
+        required: false
+        description: '**Required by the server.** Client-generated UUIDv7, unique
+          per command. Replays return the original response with `Idempotent-Replayed:
+          true`.'
         schema:
           type: string
           format: uuid
@@ -351,6 +431,12 @@ paths:
           format: date-time
       tags:
       - guest
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddItemInputRequest'
+        required: true
       responses:
         '200':
           description: No response body
@@ -372,9 +458,10 @@ paths:
         required: true
       - name: Idempotency-Key
         in: header
-        required: true
-        description: 'Client-generated UUIDv7, unique per command. Replays return
-          the original response with `Idempotent-Replayed: true`.'
+        required: false
+        description: '**Required by the server.** Client-generated UUIDv7, unique
+          per command. Replays return the original response with `Idempotent-Replayed:
+          true`.'
         schema:
           type: string
           format: uuid
@@ -388,6 +475,11 @@ paths:
           format: date-time
       tags:
       - guest
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ModifyItemInputRequest'
       responses:
         '200':
           description: No response body
@@ -409,9 +501,10 @@ paths:
         required: true
       - name: Idempotency-Key
         in: header
-        required: true
-        description: 'Client-generated UUIDv7, unique per command. Replays return
-          the original response with `Idempotent-Replayed: true`.'
+        required: false
+        description: '**Required by the server.** Client-generated UUIDv7, unique
+          per command. Replays return the original response with `Idempotent-Replayed:
+          true`.'
         schema:
           type: string
           format: uuid
@@ -440,9 +533,10 @@ paths:
         required: true
       - name: Idempotency-Key
         in: header
-        required: true
-        description: 'Client-generated UUIDv7, unique per command. Replays return
-          the original response with `Idempotent-Replayed: true`.'
+        required: false
+        description: '**Required by the server.** Client-generated UUIDv7, unique
+          per command. Replays return the original response with `Idempotent-Replayed:
+          true`.'
         schema:
           type: string
           format: uuid
@@ -472,9 +566,10 @@ paths:
         required: true
       - name: Idempotency-Key
         in: header
-        required: true
-        description: 'Client-generated UUIDv7, unique per command. Replays return
-          the original response with `Idempotent-Replayed: true`.'
+        required: false
+        description: '**Required by the server.** Client-generated UUIDv7, unique
+          per command. Replays return the original response with `Idempotent-Replayed:
+          true`.'
         schema:
           type: string
           format: uuid
@@ -513,6 +608,22 @@ paths:
   /api/v1/kds/tickets:
     get:
       operationId: kds_tickets
+      parameters:
+      - in: query
+        name: station
+        schema:
+          type: string
+          enum:
+          - BAR
+          - GRILL
+          - KITCHEN
+        description: 'Show only lines for one prep station: KITCHEN, GRILL or BAR.'
+      - name: X-Device-Token
+        in: header
+        required: false
+        description: Enrolled device token. Required for every staff request.
+        schema:
+          type: string
       tags:
       - kds
       security:
@@ -526,13 +637,6 @@ paths:
                 additionalProperties: {}
                 description: Unspecified response body
           description: ''
-      parameters:
-      - name: X-Device-Token
-        in: header
-        required: false
-        description: Enrolled device token. Required for every staff request.
-        schema:
-          type: string
   /api/v1/menu:
     get:
       operationId: menu_get
@@ -572,9 +676,10 @@ paths:
         required: true
       - name: Idempotency-Key
         in: header
-        required: true
-        description: 'Client-generated UUIDv7, unique per command. Replays return
-          the original response with `Idempotent-Replayed: true`.'
+        required: false
+        description: '**Required by the server.** Client-generated UUIDv7, unique
+          per command. Replays return the original response with `Idempotent-Replayed:
+          true`.'
         schema:
           type: string
           format: uuid
@@ -622,9 +727,10 @@ paths:
         required: true
       - name: Idempotency-Key
         in: header
-        required: true
-        description: 'Client-generated UUIDv7, unique per command. Replays return
-          the original response with `Idempotent-Replayed: true`.'
+        required: false
+        description: '**Required by the server.** Client-generated UUIDv7, unique
+          per command. Replays return the original response with `Idempotent-Replayed:
+          true`.'
         schema:
           type: string
           format: uuid
@@ -673,9 +779,10 @@ paths:
         required: true
       - name: Idempotency-Key
         in: header
-        required: true
-        description: 'Client-generated UUIDv7, unique per command. Replays return
-          the original response with `Idempotent-Replayed: true`.'
+        required: false
+        description: '**Required by the server.** Client-generated UUIDv7, unique
+          per command. Replays return the original response with `Idempotent-Replayed:
+          true`.'
         schema:
           type: string
           format: uuid
@@ -710,6 +817,12 @@ paths:
       operationId: orders_create
       tags:
       - orders
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OpenOrderInputRequest'
+        required: true
       security:
       - bearerAuth: []
       responses:
@@ -718,9 +831,10 @@ paths:
       parameters:
       - name: Idempotency-Key
         in: header
-        required: true
-        description: 'Client-generated UUIDv7, unique per command. Replays return
-          the original response with `Idempotent-Replayed: true`.'
+        required: false
+        description: '**Required by the server.** Client-generated UUIDv7, unique
+          per command. Replays return the original response with `Idempotent-Replayed:
+          true`.'
         schema:
           type: string
           format: uuid
@@ -773,9 +887,10 @@ paths:
         required: true
       - name: Idempotency-Key
         in: header
-        required: true
-        description: 'Client-generated UUIDv7, unique per command. Replays return
-          the original response with `Idempotent-Replayed: true`.'
+        required: false
+        description: '**Required by the server.** Client-generated UUIDv7, unique
+          per command. Replays return the original response with `Idempotent-Replayed:
+          true`.'
         schema:
           type: string
           format: uuid
@@ -812,9 +927,10 @@ paths:
         required: true
       - name: Idempotency-Key
         in: header
-        required: true
-        description: 'Client-generated UUIDv7, unique per command. Replays return
-          the original response with `Idempotent-Replayed: true`.'
+        required: false
+        description: '**Required by the server.** Client-generated UUIDv7, unique
+          per command. Replays return the original response with `Idempotent-Replayed:
+          true`.'
         schema:
           type: string
           format: uuid
@@ -834,6 +950,11 @@ paths:
           type: string
       tags:
       - orders
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompInputRequest'
       security:
       - bearerAuth: []
       responses:
@@ -851,9 +972,10 @@ paths:
         required: true
       - name: Idempotency-Key
         in: header
-        required: true
-        description: 'Client-generated UUIDv7, unique per command. Replays return
-          the original response with `Idempotent-Replayed: true`.'
+        required: false
+        description: '**Required by the server.** Client-generated UUIDv7, unique
+          per command. Replays return the original response with `Idempotent-Replayed:
+          true`.'
         schema:
           type: string
           format: uuid
@@ -873,6 +995,12 @@ paths:
           type: string
       tags:
       - orders
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DiscountInputRequest'
+        required: true
       security:
       - bearerAuth: []
       responses:
@@ -891,9 +1019,10 @@ paths:
         required: true
       - name: Idempotency-Key
         in: header
-        required: true
-        description: 'Client-generated UUIDv7, unique per command. Replays return
-          the original response with `Idempotent-Replayed: true`.'
+        required: false
+        description: '**Required by the server.** Client-generated UUIDv7, unique
+          per command. Replays return the original response with `Idempotent-Replayed:
+          true`.'
         schema:
           type: string
           format: uuid
@@ -930,9 +1059,10 @@ paths:
         required: true
       - name: Idempotency-Key
         in: header
-        required: true
-        description: 'Client-generated UUIDv7, unique per command. Replays return
-          the original response with `Idempotent-Replayed: true`.'
+        required: false
+        description: '**Required by the server.** Client-generated UUIDv7, unique
+          per command. Replays return the original response with `Idempotent-Replayed:
+          true`.'
         schema:
           type: string
           format: uuid
@@ -952,6 +1082,12 @@ paths:
           type: string
       tags:
       - orders
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddItemInputRequest'
+        required: true
       security:
       - bearerAuth: []
       responses:
@@ -975,9 +1111,10 @@ paths:
         required: true
       - name: Idempotency-Key
         in: header
-        required: true
-        description: 'Client-generated UUIDv7, unique per command. Replays return
-          the original response with `Idempotent-Replayed: true`.'
+        required: false
+        description: '**Required by the server.** Client-generated UUIDv7, unique
+          per command. Replays return the original response with `Idempotent-Replayed:
+          true`.'
         schema:
           type: string
           format: uuid
@@ -997,6 +1134,11 @@ paths:
           type: string
       tags:
       - orders
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ModifyItemInputRequest'
       security:
       - bearerAuth: []
       responses:
@@ -1020,9 +1162,10 @@ paths:
         required: true
       - name: Idempotency-Key
         in: header
-        required: true
-        description: 'Client-generated UUIDv7, unique per command. Replays return
-          the original response with `Idempotent-Replayed: true`.'
+        required: false
+        description: '**Required by the server.** Client-generated UUIDv7, unique
+          per command. Replays return the original response with `Idempotent-Replayed:
+          true`.'
         schema:
           type: string
           format: uuid
@@ -1042,6 +1185,12 @@ paths:
           type: string
       tags:
       - orders
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PriceOverrideInputRequest'
+        required: true
       security:
       - bearerAuth: []
       responses:
@@ -1065,9 +1214,10 @@ paths:
         required: true
       - name: Idempotency-Key
         in: header
-        required: true
-        description: 'Client-generated UUIDv7, unique per command. Replays return
-          the original response with `Idempotent-Replayed: true`.'
+        required: false
+        description: '**Required by the server.** Client-generated UUIDv7, unique
+          per command. Replays return the original response with `Idempotent-Replayed:
+          true`.'
         schema:
           type: string
           format: uuid
@@ -1110,9 +1260,10 @@ paths:
         required: true
       - name: Idempotency-Key
         in: header
-        required: true
-        description: 'Client-generated UUIDv7, unique per command. Replays return
-          the original response with `Idempotent-Replayed: true`.'
+        required: false
+        description: '**Required by the server.** Client-generated UUIDv7, unique
+          per command. Replays return the original response with `Idempotent-Replayed:
+          true`.'
         schema:
           type: string
           format: uuid
@@ -1155,9 +1306,10 @@ paths:
         required: true
       - name: Idempotency-Key
         in: header
-        required: true
-        description: 'Client-generated UUIDv7, unique per command. Replays return
-          the original response with `Idempotent-Replayed: true`.'
+        required: false
+        description: '**Required by the server.** Client-generated UUIDv7, unique
+          per command. Replays return the original response with `Idempotent-Replayed:
+          true`.'
         schema:
           type: string
           format: uuid
@@ -1194,9 +1346,10 @@ paths:
         required: true
       - name: Idempotency-Key
         in: header
-        required: true
-        description: 'Client-generated UUIDv7, unique per command. Replays return
-          the original response with `Idempotent-Replayed: true`.'
+        required: false
+        description: '**Required by the server.** Client-generated UUIDv7, unique
+          per command. Replays return the original response with `Idempotent-Replayed:
+          true`.'
         schema:
           type: string
           format: uuid
@@ -1233,9 +1386,10 @@ paths:
         required: true
       - name: Idempotency-Key
         in: header
-        required: true
-        description: 'Client-generated UUIDv7, unique per command. Replays return
-          the original response with `Idempotent-Replayed: true`.'
+        required: false
+        description: '**Required by the server.** Client-generated UUIDv7, unique
+          per command. Replays return the original response with `Idempotent-Replayed:
+          true`.'
         schema:
           type: string
           format: uuid
@@ -1272,9 +1426,10 @@ paths:
         required: true
       - name: Idempotency-Key
         in: header
-        required: true
-        description: 'Client-generated UUIDv7, unique per command. Replays return
-          the original response with `Idempotent-Replayed: true`.'
+        required: false
+        description: '**Required by the server.** Client-generated UUIDv7, unique
+          per command. Replays return the original response with `Idempotent-Replayed:
+          true`.'
         schema:
           type: string
           format: uuid
@@ -1311,9 +1466,10 @@ paths:
         required: true
       - name: Idempotency-Key
         in: header
-        required: true
-        description: 'Client-generated UUIDv7, unique per command. Replays return
-          the original response with `Idempotent-Replayed: true`.'
+        required: false
+        description: '**Required by the server.** Client-generated UUIDv7, unique
+          per command. Replays return the original response with `Idempotent-Replayed:
+          true`.'
         schema:
           type: string
           format: uuid
@@ -1333,11 +1489,67 @@ paths:
           type: string
       tags:
       - orders
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VoidInputRequest'
+        required: true
       security:
       - bearerAuth: []
       responses:
         '200':
           description: No response body
+  /api/v1/payments/{payment_id}/void:
+    post:
+      operationId: payments_void
+      parameters:
+      - in: path
+        name: payment_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - name: Idempotency-Key
+        in: header
+        required: false
+        description: '**Required by the server.** Client-generated UUIDv7, unique
+          per command. Replays return the original response with `Idempotent-Replayed:
+          true`.'
+        schema:
+          type: string
+          format: uuid
+      - name: X-Client-Time
+        in: header
+        required: false
+        description: The device's clock at send time (ISO 8601). Stored for audit;
+          never used for ordering.
+        schema:
+          type: string
+          format: date-time
+      - name: X-Device-Token
+        in: header
+        required: false
+        description: Enrolled device token. Required for every staff request.
+        schema:
+          type: string
+      tags:
+      - payments
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VoidPaymentInputRequest'
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
   /api/v1/sessions:
     post:
       operationId: sessions_open
@@ -1362,9 +1574,10 @@ paths:
       parameters:
       - name: Idempotency-Key
         in: header
-        required: true
-        description: 'Client-generated UUIDv7, unique per command. Replays return
-          the original response with `Idempotent-Replayed: true`.'
+        required: false
+        description: '**Required by the server.** Client-generated UUIDv7, unique
+          per command. Replays return the original response with `Idempotent-Replayed:
+          true`.'
         schema:
           type: string
           format: uuid
@@ -1450,9 +1663,10 @@ paths:
         required: true
       - name: Idempotency-Key
         in: header
-        required: true
-        description: 'Client-generated UUIDv7, unique per command. Replays return
-          the original response with `Idempotent-Replayed: true`.'
+        required: false
+        description: '**Required by the server.** Client-generated UUIDv7, unique
+          per command. Replays return the original response with `Idempotent-Replayed:
+          true`.'
         schema:
           type: string
           format: uuid
@@ -1496,9 +1710,10 @@ paths:
         required: true
       - name: Idempotency-Key
         in: header
-        required: true
-        description: 'Client-generated UUIDv7, unique per command. Replays return
-          the original response with `Idempotent-Replayed: true`.'
+        required: false
+        description: '**Required by the server.** Client-generated UUIDv7, unique
+          per command. Replays return the original response with `Idempotent-Replayed:
+          true`.'
         schema:
           type: string
           format: uuid
@@ -1518,11 +1733,320 @@ paths:
           type: string
       tags:
       - sessions
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GuestTokenInputRequest'
       security:
       - bearerAuth: []
       responses:
         '200':
           description: No response body
+  /api/v1/sessions/{session_id}/payments:
+    post:
+      operationId: sessions_record_payment
+      parameters:
+      - in: path
+        name: session_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - name: Idempotency-Key
+        in: header
+        required: false
+        description: '**Required by the server.** Client-generated UUIDv7, unique
+          per command. Replays return the original response with `Idempotent-Replayed:
+          true`.'
+        schema:
+          type: string
+          format: uuid
+      - name: X-Client-Time
+        in: header
+        required: false
+        description: The device's clock at send time (ISO 8601). Stored for audit;
+          never used for ordering.
+        schema:
+          type: string
+          format: date-time
+      - name: X-Device-Token
+        in: header
+        required: false
+        description: Enrolled device token. Required for every staff request.
+        schema:
+          type: string
+      tags:
+      - sessions
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecordPaymentInputRequest'
+        required: true
+      security:
+      - bearerAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/sessions/{session_id}/reopen:
+    post:
+      operationId: sessions_reopen
+      description: Reopening a settled bill is the classic leak, so it needs a manager
+        and tells the owner.
+      parameters:
+      - in: path
+        name: session_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - name: Idempotency-Key
+        in: header
+        required: false
+        description: '**Required by the server.** Client-generated UUIDv7, unique
+          per command. Replays return the original response with `Idempotent-Replayed:
+          true`.'
+        schema:
+          type: string
+          format: uuid
+      - name: X-Client-Time
+        in: header
+        required: false
+        description: The device's clock at send time (ISO 8601). Stored for audit;
+          never used for ordering.
+        schema:
+          type: string
+          format: date-time
+      - name: X-Device-Token
+        in: header
+        required: false
+        description: Enrolled device token. Required for every staff request.
+        schema:
+          type: string
+      tags:
+      - sessions
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReopenSessionInputRequest'
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/shifts:
+    post:
+      operationId: shifts_open
+      tags:
+      - shifts
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OpenShiftInputRequest'
+        required: true
+      security:
+      - bearerAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+      parameters:
+      - name: Idempotency-Key
+        in: header
+        required: false
+        description: '**Required by the server.** Client-generated UUIDv7, unique
+          per command. Replays return the original response with `Idempotent-Replayed:
+          true`.'
+        schema:
+          type: string
+          format: uuid
+      - name: X-Client-Time
+        in: header
+        required: false
+        description: The device's clock at send time (ISO 8601). Stored for audit;
+          never used for ordering.
+        schema:
+          type: string
+          format: date-time
+      - name: X-Device-Token
+        in: header
+        required: false
+        description: Enrolled device token. Required for every staff request.
+        schema:
+          type: string
+  /api/v1/shifts/{shift_id}/close:
+    post:
+      operationId: shifts_close
+      parameters:
+      - in: path
+        name: shift_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - name: Idempotency-Key
+        in: header
+        required: false
+        description: '**Required by the server.** Client-generated UUIDv7, unique
+          per command. Replays return the original response with `Idempotent-Replayed:
+          true`.'
+        schema:
+          type: string
+          format: uuid
+      - name: X-Client-Time
+        in: header
+        required: false
+        description: The device's clock at send time (ISO 8601). Stored for audit;
+          never used for ordering.
+        schema:
+          type: string
+          format: date-time
+      - name: X-Device-Token
+        in: header
+        required: false
+        description: Enrolled device token. Required for every staff request.
+        schema:
+          type: string
+      tags:
+      - shifts
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CloseShiftInputRequest'
+        required: true
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/shifts/{shift_id}/movements:
+    post:
+      operationId: shifts_movement
+      description: Cash moving with no sale behind it. Always a manager's PIN and
+        a reason.
+      parameters:
+      - in: path
+        name: shift_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - name: Idempotency-Key
+        in: header
+        required: false
+        description: '**Required by the server.** Client-generated UUIDv7, unique
+          per command. Replays return the original response with `Idempotent-Replayed:
+          true`.'
+        schema:
+          type: string
+          format: uuid
+      - name: X-Client-Time
+        in: header
+        required: false
+        description: The device's clock at send time (ISO 8601). Stored for audit;
+          never used for ordering.
+        schema:
+          type: string
+          format: date-time
+      - name: X-Device-Token
+        in: header
+        required: false
+        description: Enrolled device token. Required for every staff request.
+        schema:
+          type: string
+      tags:
+      - shifts
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DrawerMovementInputRequest'
+        required: true
+      security:
+      - bearerAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/shifts/{shift_id}/z-report:
+    get:
+      operationId: shifts_z_report
+      parameters:
+      - in: path
+        name: shift_id
+        schema:
+          type: string
+          format: uuid
+        required: true
+      - name: X-Device-Token
+        in: header
+        required: false
+        description: Enrolled device token. Required for every staff request.
+        schema:
+          type: string
+      tags:
+      - shifts
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+  /api/v1/shifts/current:
+    get:
+      operationId: shifts_current
+      description: GET /shifts/current — the caller's open shift, or null so the UI
+        shows the open-shift screen.
+      tags:
+      - shifts
+      security:
+      - bearerAuth: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+      parameters:
+      - name: X-Device-Token
+        in: header
+        required: false
+        description: Enrolled device token. Required for every staff request.
+        schema:
+          type: string
   /api/v1/tables:
     get:
       operationId: tables_list
@@ -1548,6 +2072,191 @@ paths:
           type: string
 components:
   schemas:
+    AddItemInputRequest:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        menu_item_id:
+          type: string
+          format: uuid
+        quantity:
+          type: integer
+          minimum: 1
+        modifier_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        notes:
+          type: string
+          default: ''
+          maxLength: 500
+        course:
+          type: integer
+          minimum: 1
+          default: 1
+      required:
+      - id
+      - menu_item_id
+      - quantity
+    AuthoriseInputRequest:
+      type: object
+      properties:
+        pin:
+          type: string
+          minLength: 4
+          maxLength: 6
+        purpose:
+          enum:
+          - VOID_AFTER_ACK
+          - DISCOUNT
+          - COMP
+          - PRICE_OVERRIDE
+          - REOPEN
+          - DRAWER_MOVEMENT
+          - PAYMENT_VOID
+          - PRICE_CHANGE_IN_SERVICE
+          type: string
+          description: |-
+            * `VOID_AFTER_ACK` - VOID_AFTER_ACK
+            * `DISCOUNT` - DISCOUNT
+            * `COMP` - COMP
+            * `PRICE_OVERRIDE` - PRICE_OVERRIDE
+            * `REOPEN` - REOPEN
+            * `DRAWER_MOVEMENT` - DRAWER_MOVEMENT
+            * `PAYMENT_VOID` - PAYMENT_VOID
+            * `PRICE_CHANGE_IN_SERVICE` - PRICE_CHANGE_IN_SERVICE
+          x-spec-enum-id: 76e0ccf71c541d93
+      required:
+      - pin
+      - purpose
+    CloseShiftInputRequest:
+      type: object
+      properties:
+        declared_cash_pesewas:
+          type: integer
+          minimum: 0
+        note:
+          type: string
+          default: ''
+          maxLength: 500
+      required:
+      - declared_cash_pesewas
+    CompInputRequest:
+      type: object
+      properties:
+        reason_code:
+          type: string
+          minLength: 1
+          maxLength: 64
+        note:
+          type: string
+          default: ''
+          maxLength: 500
+    DiscountInputRequest:
+      type: object
+      properties:
+        kind:
+          enum:
+          - PERCENT
+          - AMOUNT
+          type: string
+          description: |-
+            * `PERCENT` - PERCENT
+            * `AMOUNT` - AMOUNT
+          x-spec-enum-id: 9f25e7b70bb7b01c
+        value:
+          type: integer
+          minimum: 0
+        reason_code:
+          type: string
+          minLength: 1
+          maxLength: 64
+        note:
+          type: string
+          default: ''
+          maxLength: 500
+      required:
+      - kind
+      - value
+    DrawerMovementInputRequest:
+      type: object
+      properties:
+        kind:
+          enum:
+          - NO_SALE
+          - PAID_OUT
+          - PAID_IN
+          type: string
+          description: |-
+            * `NO_SALE` - No Sale
+            * `PAID_OUT` - Paid Out
+            * `PAID_IN` - Paid In
+          x-spec-enum-id: 560f8a95c18eda11
+        amount_pesewas:
+          type: integer
+          minimum: 0
+          default: 0
+        reason_code:
+          type: string
+          minLength: 1
+          maxLength: 64
+        note:
+          type: string
+          default: ''
+          maxLength: 500
+      required:
+      - kind
+    EnrolDeviceInputRequest:
+      type: object
+      properties:
+        enrolment_code:
+          type: string
+          minLength: 1
+          maxLength: 16
+      required:
+      - enrolment_code
+    GuestTokenInputRequest:
+      type: object
+      properties:
+        mode:
+          enum:
+          - guest
+          type: string
+          description: '* `guest` - guest'
+          x-spec-enum-id: b378d01057432846
+          default: guest
+    ModifyItemInputRequest:
+      type: object
+      properties:
+        quantity:
+          type: integer
+          minimum: 1
+        modifier_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+        notes:
+          type: string
+          maxLength: 500
+        course:
+          type: integer
+          minimum: 1
+    OpenOrderInputRequest:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        session_id:
+          type: string
+          format: uuid
+      required:
+      - id
+      - session_id
     OpenSessionInputRequest:
       type: object
       properties:
@@ -1564,6 +2273,31 @@ components:
       required:
       - id
       - table_id
+    OpenShiftInputRequest:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        opening_float_pesewas:
+          type: integer
+          minimum: 0
+      required:
+      - id
+      - opening_float_pesewas
+    PinLoginInputRequest:
+      type: object
+      properties:
+        staff_id:
+          type: string
+          format: uuid
+        pin:
+          type: string
+          minLength: 4
+          maxLength: 6
+      required:
+      - pin
+      - staff_id
     PriceChangeInputRequest:
       type: object
       properties:
@@ -1572,6 +2306,99 @@ components:
           minimum: 0
       required:
       - price_pesewas
+    PriceOverrideInputRequest:
+      type: object
+      properties:
+        unit_price_pesewas:
+          type: integer
+          minimum: 0
+        reason_code:
+          type: string
+          minLength: 1
+          maxLength: 64
+        note:
+          type: string
+          default: ''
+          maxLength: 500
+      required:
+      - unit_price_pesewas
+    RecordPaymentInputRequest:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        method:
+          enum:
+          - CASH
+          - MOMO_MTN
+          - MOMO_TELECEL
+          - MOMO_AT
+          - CARD
+          - BANK
+          type: string
+          description: |-
+            * `CASH` - Cash
+            * `MOMO_MTN` - Momo Mtn
+            * `MOMO_TELECEL` - Momo Telecel
+            * `MOMO_AT` - Momo At
+            * `CARD` - Card
+            * `BANK` - Bank
+          x-spec-enum-id: a4203ecf9f4e5aef
+        amount_pesewas:
+          type: integer
+          minimum: 1
+        tendered_pesewas:
+          type: integer
+          minimum: 0
+          nullable: true
+        external_reference:
+          type: string
+          nullable: true
+          maxLength: 64
+        order_id:
+          type: string
+          format: uuid
+          nullable: true
+      required:
+      - amount_pesewas
+      - id
+      - method
+    ReopenSessionInputRequest:
+      type: object
+      properties:
+        reason_code:
+          type: string
+          minLength: 1
+          maxLength: 64
+        note:
+          type: string
+          default: ''
+          maxLength: 500
+    VoidInputRequest:
+      type: object
+      properties:
+        reason_code:
+          type: string
+          minLength: 1
+          maxLength: 64
+        note:
+          type: string
+          default: ''
+          maxLength: 500
+      required:
+      - reason_code
+    VoidPaymentInputRequest:
+      type: object
+      properties:
+        reason_code:
+          type: string
+          minLength: 1
+          maxLength: 64
+        note:
+          type: string
+          default: ''
+          maxLength: 500
   securitySchemes:
     bearerAuth:
       type: http

@@ -106,6 +106,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/bills/open": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description GET /bills/open — the cashier's board: what is still owing, and what can be paid yet. */
+        get: operations["bills_open"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/devices/enrol": {
         parameters: {
             query?: never;
@@ -130,7 +147,12 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description GET /devices/me — device label, roles, staff list for the PIN pad. */
+        /**
+         * @description GET /devices/me — device label, roles, staff list for the PIN pad.
+         *
+         *     Answers to the device token alone: the PIN pad needs the staff list before anyone has signed in.
+         *     A staff bearer, if sent, must still be valid (a revoked or foreign token is 401). Guests are 403.
+         */
         get: operations["devices_me_retrieve"];
         put?: never;
         post?: never;
@@ -152,6 +174,26 @@ export interface paths {
          * @description `last_seq` is the highest seq scanned, including events this role may not see — always send it back as `since`. `has_more` means call again immediately.
          */
         get: operations["events_retrieve"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/guest/menu": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Full menu for a guest token
+         * @description GET /guest/menu — the same menu on the sandboxed guest router (guest token only, throttled).
+         */
+        get: operations["guest_menu_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -640,6 +682,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/payments/{payment_id}/void": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["payments_void"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sessions": {
         parameters: {
             query?: never;
@@ -721,6 +779,121 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sessions/{session_id}/payments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["sessions_record_payment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{session_id}/reopen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Reopening a settled bill is the classic leak, so it needs a manager and tells the owner. */
+        post: operations["sessions_reopen"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shifts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["shifts_open"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shifts/{shift_id}/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["shifts_close"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shifts/{shift_id}/movements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Cash moving with no sale behind it. Always a manager's PIN and a reason. */
+        post: operations["shifts_movement"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shifts/{shift_id}/z-report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["shifts_z_report"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shifts/current": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description GET /shifts/current — the caller's open shift, or null so the UI shows the open-shift screen. */
+        get: operations["shifts_current"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/tables": {
         parameters: {
             query?: never;
@@ -741,6 +914,92 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        AddItemInputRequest: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            menu_item_id: string;
+            quantity: number;
+            modifier_ids?: string[];
+            /** @default  */
+            notes: string;
+            /** @default 1 */
+            course: number;
+        };
+        AuthoriseInputRequest: {
+            pin: string;
+            /**
+             * @description * `VOID_AFTER_ACK` - VOID_AFTER_ACK
+             *     * `DISCOUNT` - DISCOUNT
+             *     * `COMP` - COMP
+             *     * `PRICE_OVERRIDE` - PRICE_OVERRIDE
+             *     * `REOPEN` - REOPEN
+             *     * `DRAWER_MOVEMENT` - DRAWER_MOVEMENT
+             *     * `PAYMENT_VOID` - PAYMENT_VOID
+             *     * `PRICE_CHANGE_IN_SERVICE` - PRICE_CHANGE_IN_SERVICE
+             * @enum {string}
+             */
+            purpose: "VOID_AFTER_ACK" | "DISCOUNT" | "COMP" | "PRICE_OVERRIDE" | "REOPEN" | "DRAWER_MOVEMENT" | "PAYMENT_VOID" | "PRICE_CHANGE_IN_SERVICE";
+        };
+        CloseShiftInputRequest: {
+            declared_cash_pesewas: number;
+            /** @default  */
+            note: string;
+        };
+        CompInputRequest: {
+            reason_code?: string;
+            /** @default  */
+            note: string;
+        };
+        DiscountInputRequest: {
+            /**
+             * @description * `PERCENT` - PERCENT
+             *     * `AMOUNT` - AMOUNT
+             * @enum {string}
+             */
+            kind: "PERCENT" | "AMOUNT";
+            value: number;
+            reason_code?: string;
+            /** @default  */
+            note: string;
+        };
+        DrawerMovementInputRequest: {
+            /**
+             * @description * `NO_SALE` - No Sale
+             *     * `PAID_OUT` - Paid Out
+             *     * `PAID_IN` - Paid In
+             * @enum {string}
+             */
+            kind: "NO_SALE" | "PAID_OUT" | "PAID_IN";
+            /** @default 0 */
+            amount_pesewas: number;
+            reason_code?: string;
+            /** @default  */
+            note: string;
+        };
+        EnrolDeviceInputRequest: {
+            enrolment_code: string;
+        };
+        GuestTokenInputRequest: {
+            /**
+             * @description * `guest` - guest
+             * @default guest
+             * @enum {string}
+             */
+            mode: "guest";
+        };
+        ModifyItemInputRequest: {
+            quantity?: number;
+            modifier_ids?: string[];
+            notes?: string;
+            course?: number;
+        };
+        OpenOrderInputRequest: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            session_id: string;
+        };
         OpenSessionInputRequest: {
             /** Format: uuid */
             id: string;
@@ -748,8 +1007,58 @@ export interface components {
             table_id: string;
             party_size?: number | null;
         };
+        OpenShiftInputRequest: {
+            /** Format: uuid */
+            id: string;
+            opening_float_pesewas: number;
+        };
+        PinLoginInputRequest: {
+            /** Format: uuid */
+            staff_id: string;
+            pin: string;
+        };
         PriceChangeInputRequest: {
             price_pesewas: number;
+        };
+        PriceOverrideInputRequest: {
+            unit_price_pesewas: number;
+            reason_code?: string;
+            /** @default  */
+            note: string;
+        };
+        RecordPaymentInputRequest: {
+            /** Format: uuid */
+            id: string;
+            /**
+             * @description * `CASH` - Cash
+             *     * `MOMO_MTN` - Momo Mtn
+             *     * `MOMO_TELECEL` - Momo Telecel
+             *     * `MOMO_AT` - Momo At
+             *     * `CARD` - Card
+             *     * `BANK` - Bank
+             * @enum {string}
+             */
+            method: "CASH" | "MOMO_MTN" | "MOMO_TELECEL" | "MOMO_AT" | "CARD" | "BANK";
+            amount_pesewas: number;
+            tendered_pesewas?: number | null;
+            external_reference?: string | null;
+            /** Format: uuid */
+            order_id?: string | null;
+        };
+        ReopenSessionInputRequest: {
+            reason_code?: string;
+            /** @default  */
+            note: string;
+        };
+        VoidInputRequest: {
+            reason_code: string;
+            /** @default  */
+            note: string;
+        };
+        VoidPaymentInputRequest: {
+            reason_code?: string;
+            /** @default  */
+            note: string;
         };
     };
     responses: never;
@@ -763,9 +1072,9 @@ export interface operations {
     auth_authorise_create: {
         parameters: {
             query?: never;
-            header: {
-                /** @description Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
-                "Idempotency-Key": string;
+            header?: {
+                /** @description **Required by the server.** Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
+                "Idempotency-Key"?: string;
                 /** @description The device's clock at send time (ISO 8601). Stored for audit; never used for ordering. */
                 "X-Client-Time"?: string;
                 /** @description Enrolled device token. Required for every staff request. */
@@ -774,7 +1083,11 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AuthoriseInputRequest"];
+            };
+        };
         responses: {
             /** @description No response body */
             200: {
@@ -788,9 +1101,9 @@ export interface operations {
     auth_logout_create: {
         parameters: {
             query?: never;
-            header: {
-                /** @description Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
-                "Idempotency-Key": string;
+            header?: {
+                /** @description **Required by the server.** Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
+                "Idempotency-Key"?: string;
                 /** @description The device's clock at send time (ISO 8601). Stored for audit; never used for ordering. */
                 "X-Client-Time"?: string;
                 /** @description Enrolled device token. Required for every staff request. */
@@ -813,9 +1126,9 @@ export interface operations {
     auth_owner_login_create: {
         parameters: {
             query?: never;
-            header: {
-                /** @description Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
-                "Idempotency-Key": string;
+            header?: {
+                /** @description **Required by the server.** Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
+                "Idempotency-Key"?: string;
                 /** @description The device's clock at send time (ISO 8601). Stored for audit; never used for ordering. */
                 "X-Client-Time"?: string;
                 /** @description Enrolled device token. Required for every staff request. */
@@ -859,9 +1172,9 @@ export interface operations {
     auth_owner_totp_create: {
         parameters: {
             query?: never;
-            header: {
-                /** @description Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
-                "Idempotency-Key": string;
+            header?: {
+                /** @description **Required by the server.** Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
+                "Idempotency-Key"?: string;
                 /** @description The device's clock at send time (ISO 8601). Stored for audit; never used for ordering. */
                 "X-Client-Time"?: string;
                 /** @description Enrolled device token. Required for every staff request. */
@@ -884,9 +1197,9 @@ export interface operations {
     auth_pin_create: {
         parameters: {
             query?: never;
-            header: {
-                /** @description Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
-                "Idempotency-Key": string;
+            header?: {
+                /** @description **Required by the server.** Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
+                "Idempotency-Key"?: string;
                 /** @description The device's clock at send time (ISO 8601). Stored for audit; never used for ordering. */
                 "X-Client-Time"?: string;
                 /** @description Enrolled device token. Required for every staff request. */
@@ -895,7 +1208,11 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PinLoginInputRequest"];
+            };
+        };
         responses: {
             /** @description No response body */
             200: {
@@ -906,12 +1223,36 @@ export interface operations {
             };
         };
     };
+    bills_open: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Enrolled device token. Required for every staff request. */
+                "X-Device-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
     devices_enrol_create: {
         parameters: {
             query?: never;
-            header: {
-                /** @description Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
-                "Idempotency-Key": string;
+            header?: {
+                /** @description **Required by the server.** Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
+                "Idempotency-Key"?: string;
                 /** @description The device's clock at send time (ISO 8601). Stored for audit; never used for ordering. */
                 "X-Client-Time"?: string;
                 /** @description Enrolled device token. Required for every staff request. */
@@ -920,7 +1261,11 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EnrolDeviceInputRequest"];
+            };
+        };
         responses: {
             /** @description No response body */
             200: {
@@ -981,19 +1326,51 @@ export interface operations {
             };
         };
     };
+    guest_menu_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            /** @description No response body */
+            304: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     guest_orders_create: {
         parameters: {
             query?: never;
-            header: {
-                /** @description Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
-                "Idempotency-Key": string;
+            header?: {
+                /** @description **Required by the server.** Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
+                "Idempotency-Key"?: string;
                 /** @description The device's clock at send time (ISO 8601). Stored for audit; never used for ordering. */
                 "X-Client-Time"?: string;
             };
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OpenOrderInputRequest"];
+            };
+        };
         responses: {
             /** @description No response body */
             200: {
@@ -1027,9 +1404,9 @@ export interface operations {
     guest_orders_items_create: {
         parameters: {
             query?: never;
-            header: {
-                /** @description Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
-                "Idempotency-Key": string;
+            header?: {
+                /** @description **Required by the server.** Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
+                "Idempotency-Key"?: string;
                 /** @description The device's clock at send time (ISO 8601). Stored for audit; never used for ordering. */
                 "X-Client-Time"?: string;
             };
@@ -1038,7 +1415,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddItemInputRequest"];
+            };
+        };
         responses: {
             /** @description No response body */
             200: {
@@ -1052,9 +1433,9 @@ export interface operations {
     guest_orders_items_modify_create: {
         parameters: {
             query?: never;
-            header: {
-                /** @description Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
-                "Idempotency-Key": string;
+            header?: {
+                /** @description **Required by the server.** Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
+                "Idempotency-Key"?: string;
                 /** @description The device's clock at send time (ISO 8601). Stored for audit; never used for ordering. */
                 "X-Client-Time"?: string;
             };
@@ -1064,7 +1445,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ModifyItemInputRequest"];
+            };
+        };
         responses: {
             /** @description No response body */
             200: {
@@ -1078,9 +1463,9 @@ export interface operations {
     guest_orders_items_remove_create: {
         parameters: {
             query?: never;
-            header: {
-                /** @description Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
-                "Idempotency-Key": string;
+            header?: {
+                /** @description **Required by the server.** Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
+                "Idempotency-Key"?: string;
                 /** @description The device's clock at send time (ISO 8601). Stored for audit; never used for ordering. */
                 "X-Client-Time"?: string;
             };
@@ -1104,9 +1489,9 @@ export interface operations {
     guest_orders_submit_create: {
         parameters: {
             query?: never;
-            header: {
-                /** @description Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
-                "Idempotency-Key": string;
+            header?: {
+                /** @description **Required by the server.** Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
+                "Idempotency-Key"?: string;
                 /** @description The device's clock at send time (ISO 8601). Stored for audit; never used for ordering. */
                 "X-Client-Time"?: string;
             };
@@ -1129,9 +1514,9 @@ export interface operations {
     guest_sessions_create: {
         parameters: {
             query?: never;
-            header: {
-                /** @description Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
-                "Idempotency-Key": string;
+            header?: {
+                /** @description **Required by the server.** Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
+                "Idempotency-Key"?: string;
                 /** @description The device's clock at send time (ISO 8601). Stored for audit; never used for ordering. */
                 "X-Client-Time"?: string;
             };
@@ -1173,7 +1558,10 @@ export interface operations {
     };
     kds_tickets: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Show only lines for one prep station: KITCHEN, GRILL or BAR. */
+                station?: "BAR" | "GRILL" | "KITCHEN";
+            };
             header?: {
                 /** @description Enrolled device token. Required for every staff request. */
                 "X-Device-Token"?: string;
@@ -1229,9 +1617,9 @@ export interface operations {
     menu_item_86: {
         parameters: {
             query?: never;
-            header: {
-                /** @description Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
-                "Idempotency-Key": string;
+            header?: {
+                /** @description **Required by the server.** Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
+                "Idempotency-Key"?: string;
                 /** @description The device's clock at send time (ISO 8601). Stored for audit; never used for ordering. */
                 "X-Client-Time"?: string;
                 /** @description Enrolled device token. Required for every staff request. */
@@ -1259,9 +1647,9 @@ export interface operations {
     menu_item_price: {
         parameters: {
             query?: never;
-            header: {
-                /** @description Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
-                "Idempotency-Key": string;
+            header?: {
+                /** @description **Required by the server.** Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
+                "Idempotency-Key"?: string;
                 /** @description The device's clock at send time (ISO 8601). Stored for audit; never used for ordering. */
                 "X-Client-Time"?: string;
                 /** @description Enrolled device token. Required for every staff request. */
@@ -1293,9 +1681,9 @@ export interface operations {
     menu_item_restore: {
         parameters: {
             query?: never;
-            header: {
-                /** @description Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
-                "Idempotency-Key": string;
+            header?: {
+                /** @description **Required by the server.** Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
+                "Idempotency-Key"?: string;
                 /** @description The device's clock at send time (ISO 8601). Stored for audit; never used for ordering. */
                 "X-Client-Time"?: string;
                 /** @description Enrolled device token. Required for every staff request. */
@@ -1323,9 +1711,9 @@ export interface operations {
     orders_create: {
         parameters: {
             query?: never;
-            header: {
-                /** @description Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
-                "Idempotency-Key": string;
+            header?: {
+                /** @description **Required by the server.** Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
+                "Idempotency-Key"?: string;
                 /** @description The device's clock at send time (ISO 8601). Stored for audit; never used for ordering. */
                 "X-Client-Time"?: string;
                 /** @description Enrolled device token. Required for every staff request. */
@@ -1334,7 +1722,11 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OpenOrderInputRequest"];
+            };
+        };
         responses: {
             /** @description No response body */
             200: {
@@ -1371,9 +1763,9 @@ export interface operations {
     orders_ack_create: {
         parameters: {
             query?: never;
-            header: {
-                /** @description Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
-                "Idempotency-Key": string;
+            header?: {
+                /** @description **Required by the server.** Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
+                "Idempotency-Key"?: string;
                 /** @description The device's clock at send time (ISO 8601). Stored for audit; never used for ordering. */
                 "X-Client-Time"?: string;
                 /** @description Enrolled device token. Required for every staff request. */
@@ -1398,9 +1790,9 @@ export interface operations {
     orders_comp_create: {
         parameters: {
             query?: never;
-            header: {
-                /** @description Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
-                "Idempotency-Key": string;
+            header?: {
+                /** @description **Required by the server.** Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
+                "Idempotency-Key"?: string;
                 /** @description The device's clock at send time (ISO 8601). Stored for audit; never used for ordering. */
                 "X-Client-Time"?: string;
                 /** @description Enrolled device token. Required for every staff request. */
@@ -1411,7 +1803,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["CompInputRequest"];
+            };
+        };
         responses: {
             /** @description No response body */
             200: {
@@ -1425,9 +1821,9 @@ export interface operations {
     orders_discount_create: {
         parameters: {
             query?: never;
-            header: {
-                /** @description Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
-                "Idempotency-Key": string;
+            header?: {
+                /** @description **Required by the server.** Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
+                "Idempotency-Key"?: string;
                 /** @description The device's clock at send time (ISO 8601). Stored for audit; never used for ordering. */
                 "X-Client-Time"?: string;
                 /** @description Enrolled device token. Required for every staff request. */
@@ -1438,7 +1834,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DiscountInputRequest"];
+            };
+        };
         responses: {
             /** @description No response body */
             200: {
@@ -1452,9 +1852,9 @@ export interface operations {
     orders_fire_create: {
         parameters: {
             query?: never;
-            header: {
-                /** @description Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
-                "Idempotency-Key": string;
+            header?: {
+                /** @description **Required by the server.** Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
+                "Idempotency-Key"?: string;
                 /** @description The device's clock at send time (ISO 8601). Stored for audit; never used for ordering. */
                 "X-Client-Time"?: string;
                 /** @description Enrolled device token. Required for every staff request. */
@@ -1479,9 +1879,9 @@ export interface operations {
     orders_items_create: {
         parameters: {
             query?: never;
-            header: {
-                /** @description Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
-                "Idempotency-Key": string;
+            header?: {
+                /** @description **Required by the server.** Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
+                "Idempotency-Key"?: string;
                 /** @description The device's clock at send time (ISO 8601). Stored for audit; never used for ordering. */
                 "X-Client-Time"?: string;
                 /** @description Enrolled device token. Required for every staff request. */
@@ -1492,7 +1892,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddItemInputRequest"];
+            };
+        };
         responses: {
             /** @description No response body */
             200: {
@@ -1506,9 +1910,9 @@ export interface operations {
     orders_items_modify_create: {
         parameters: {
             query?: never;
-            header: {
-                /** @description Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
-                "Idempotency-Key": string;
+            header?: {
+                /** @description **Required by the server.** Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
+                "Idempotency-Key"?: string;
                 /** @description The device's clock at send time (ISO 8601). Stored for audit; never used for ordering. */
                 "X-Client-Time"?: string;
                 /** @description Enrolled device token. Required for every staff request. */
@@ -1520,7 +1924,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ModifyItemInputRequest"];
+            };
+        };
         responses: {
             /** @description No response body */
             200: {
@@ -1534,9 +1942,9 @@ export interface operations {
     orders_items_price_override_create: {
         parameters: {
             query?: never;
-            header: {
-                /** @description Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
-                "Idempotency-Key": string;
+            header?: {
+                /** @description **Required by the server.** Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
+                "Idempotency-Key"?: string;
                 /** @description The device's clock at send time (ISO 8601). Stored for audit; never used for ordering. */
                 "X-Client-Time"?: string;
                 /** @description Enrolled device token. Required for every staff request. */
@@ -1548,7 +1956,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PriceOverrideInputRequest"];
+            };
+        };
         responses: {
             /** @description No response body */
             200: {
@@ -1562,9 +1974,9 @@ export interface operations {
     orders_items_ready_create: {
         parameters: {
             query?: never;
-            header: {
-                /** @description Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
-                "Idempotency-Key": string;
+            header?: {
+                /** @description **Required by the server.** Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
+                "Idempotency-Key"?: string;
                 /** @description The device's clock at send time (ISO 8601). Stored for audit; never used for ordering. */
                 "X-Client-Time"?: string;
                 /** @description Enrolled device token. Required for every staff request. */
@@ -1590,9 +2002,9 @@ export interface operations {
     orders_items_remove_create: {
         parameters: {
             query?: never;
-            header: {
-                /** @description Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
-                "Idempotency-Key": string;
+            header?: {
+                /** @description **Required by the server.** Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
+                "Idempotency-Key"?: string;
                 /** @description The device's clock at send time (ISO 8601). Stored for audit; never used for ordering. */
                 "X-Client-Time"?: string;
                 /** @description Enrolled device token. Required for every staff request. */
@@ -1618,9 +2030,9 @@ export interface operations {
     orders_items_start_create: {
         parameters: {
             query?: never;
-            header: {
-                /** @description Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
-                "Idempotency-Key": string;
+            header?: {
+                /** @description **Required by the server.** Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
+                "Idempotency-Key"?: string;
                 /** @description The device's clock at send time (ISO 8601). Stored for audit; never used for ordering. */
                 "X-Client-Time"?: string;
                 /** @description Enrolled device token. Required for every staff request. */
@@ -1646,9 +2058,9 @@ export interface operations {
     orders_ready_create: {
         parameters: {
             query?: never;
-            header: {
-                /** @description Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
-                "Idempotency-Key": string;
+            header?: {
+                /** @description **Required by the server.** Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
+                "Idempotency-Key"?: string;
                 /** @description The device's clock at send time (ISO 8601). Stored for audit; never used for ordering. */
                 "X-Client-Time"?: string;
                 /** @description Enrolled device token. Required for every staff request. */
@@ -1673,9 +2085,9 @@ export interface operations {
     orders_serve_create: {
         parameters: {
             query?: never;
-            header: {
-                /** @description Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
-                "Idempotency-Key": string;
+            header?: {
+                /** @description **Required by the server.** Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
+                "Idempotency-Key"?: string;
                 /** @description The device's clock at send time (ISO 8601). Stored for audit; never used for ordering. */
                 "X-Client-Time"?: string;
                 /** @description Enrolled device token. Required for every staff request. */
@@ -1700,9 +2112,9 @@ export interface operations {
     orders_submit_create: {
         parameters: {
             query?: never;
-            header: {
-                /** @description Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
-                "Idempotency-Key": string;
+            header?: {
+                /** @description **Required by the server.** Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
+                "Idempotency-Key"?: string;
                 /** @description The device's clock at send time (ISO 8601). Stored for audit; never used for ordering. */
                 "X-Client-Time"?: string;
                 /** @description Enrolled device token. Required for every staff request. */
@@ -1727,9 +2139,9 @@ export interface operations {
     orders_void_create: {
         parameters: {
             query?: never;
-            header: {
-                /** @description Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
-                "Idempotency-Key": string;
+            header?: {
+                /** @description **Required by the server.** Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
+                "Idempotency-Key"?: string;
                 /** @description The device's clock at send time (ISO 8601). Stored for audit; never used for ordering. */
                 "X-Client-Time"?: string;
                 /** @description Enrolled device token. Required for every staff request. */
@@ -1740,7 +2152,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VoidInputRequest"];
+            };
+        };
         responses: {
             /** @description No response body */
             200: {
@@ -1751,12 +2167,46 @@ export interface operations {
             };
         };
     };
+    payments_void: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description **Required by the server.** Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
+                "Idempotency-Key"?: string;
+                /** @description The device's clock at send time (ISO 8601). Stored for audit; never used for ordering. */
+                "X-Client-Time"?: string;
+                /** @description Enrolled device token. Required for every staff request. */
+                "X-Device-Token"?: string;
+            };
+            path: {
+                payment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["VoidPaymentInputRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
     sessions_open: {
         parameters: {
             query?: never;
-            header: {
-                /** @description Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
-                "Idempotency-Key": string;
+            header?: {
+                /** @description **Required by the server.** Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
+                "Idempotency-Key"?: string;
                 /** @description The device's clock at send time (ISO 8601). Stored for audit; never used for ordering. */
                 "X-Client-Time"?: string;
                 /** @description Enrolled device token. Required for every staff request. */
@@ -1838,9 +2288,9 @@ export interface operations {
     sessions_close: {
         parameters: {
             query?: never;
-            header: {
-                /** @description Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
-                "Idempotency-Key": string;
+            header?: {
+                /** @description **Required by the server.** Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
+                "Idempotency-Key"?: string;
                 /** @description The device's clock at send time (ISO 8601). Stored for audit; never used for ordering. */
                 "X-Client-Time"?: string;
                 /** @description Enrolled device token. Required for every staff request. */
@@ -1868,9 +2318,9 @@ export interface operations {
     sessions_guest_token_create: {
         parameters: {
             query?: never;
-            header: {
-                /** @description Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
-                "Idempotency-Key": string;
+            header?: {
+                /** @description **Required by the server.** Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
+                "Idempotency-Key"?: string;
                 /** @description The device's clock at send time (ISO 8601). Stored for audit; never used for ordering. */
                 "X-Client-Time"?: string;
                 /** @description Enrolled device token. Required for every staff request. */
@@ -1881,7 +2331,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["GuestTokenInputRequest"];
+            };
+        };
         responses: {
             /** @description No response body */
             200: {
@@ -1889,6 +2343,224 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    sessions_record_payment: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description **Required by the server.** Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
+                "Idempotency-Key"?: string;
+                /** @description The device's clock at send time (ISO 8601). Stored for audit; never used for ordering. */
+                "X-Client-Time"?: string;
+                /** @description Enrolled device token. Required for every staff request. */
+                "X-Device-Token"?: string;
+            };
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecordPaymentInputRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    sessions_reopen: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description **Required by the server.** Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
+                "Idempotency-Key"?: string;
+                /** @description The device's clock at send time (ISO 8601). Stored for audit; never used for ordering. */
+                "X-Client-Time"?: string;
+                /** @description Enrolled device token. Required for every staff request. */
+                "X-Device-Token"?: string;
+            };
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ReopenSessionInputRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    shifts_open: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description **Required by the server.** Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
+                "Idempotency-Key"?: string;
+                /** @description The device's clock at send time (ISO 8601). Stored for audit; never used for ordering. */
+                "X-Client-Time"?: string;
+                /** @description Enrolled device token. Required for every staff request. */
+                "X-Device-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OpenShiftInputRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    shifts_close: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description **Required by the server.** Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
+                "Idempotency-Key"?: string;
+                /** @description The device's clock at send time (ISO 8601). Stored for audit; never used for ordering. */
+                "X-Client-Time"?: string;
+                /** @description Enrolled device token. Required for every staff request. */
+                "X-Device-Token"?: string;
+            };
+            path: {
+                shift_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CloseShiftInputRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    shifts_movement: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description **Required by the server.** Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
+                "Idempotency-Key"?: string;
+                /** @description The device's clock at send time (ISO 8601). Stored for audit; never used for ordering. */
+                "X-Client-Time"?: string;
+                /** @description Enrolled device token. Required for every staff request. */
+                "X-Device-Token"?: string;
+            };
+            path: {
+                shift_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DrawerMovementInputRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    shifts_z_report: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Enrolled device token. Required for every staff request. */
+                "X-Device-Token"?: string;
+            };
+            path: {
+                shift_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    shifts_current: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Enrolled device token. Required for every staff request. */
+                "X-Device-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
             };
         };
     };

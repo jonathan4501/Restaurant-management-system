@@ -63,7 +63,6 @@
             "content": {
               "application/json": {
                 "example": {
-                  "id": "d0000000-0000-4000-8000-000000000099",
                   "label": "Floor tablet 1",
                   "allowed_roles": [
                     "WAITER",
@@ -74,29 +73,26 @@
                   "staff": [
                     {
                       "id": "b1000001-0001-4001-8001-000000000001",
-                      "full_name": "Kofi Mensah",
                       "role": "WAITER",
-                      "initials": "KM"
+                      "name": "Kofi Mensah"
                     },
                     {
                       "id": "b1000002-0002-4002-8002-000000000002",
-                      "full_name": "Efua Mensah",
                       "role": "WAITER",
-                      "initials": "EM"
+                      "name": "Efua Mensah"
                     },
                     {
                       "id": "b1000003-0003-4003-8003-000000000003",
-                      "full_name": "Yaw Mensah",
                       "role": "KITCHEN",
-                      "initials": "YM"
+                      "name": "Yaw Mensah"
                     },
                     {
                       "id": "b1000004-0004-4004-8004-000000000004",
-                      "full_name": "Ama Mensah",
                       "role": "CASHIER",
-                      "initials": "AM"
+                      "name": "Ama Mensah"
                     }
-                  ]
+                  ],
+                  "device_id": "d0000000-0000-4000-8000-000000000099"
                 }
               }
             }
@@ -139,9 +135,8 @@
                   "expires_at": "2026-09-15T21:00:00Z",
                   "staff": {
                     "id": "b1000002-0002-4002-8002-000000000002",
-                    "full_name": "Efua Mensah",
                     "role": "WAITER",
-                    "initials": "EM"
+                    "name": "Efua Mensah"
                   }
                 }
               }
@@ -294,32 +289,30 @@
             "description": "ok",
             "content": {
               "application/json": {
-                "example": {
-                  "tables": [
-                    {
-                      "id": "0d51acb8-5e6a-5646-9003-ec4053f729e6",
-                      "number": "7",
-                      "seats": 4,
-                      "state_chip": "free",
-                      "open_session": null
+                "example": [
+                  {
+                    "id": "0d51acb8-5e6a-5646-9003-ec4053f729e6",
+                    "number": "7",
+                    "seats": 4,
+                    "open_session": null,
+                    "is_active": true
+                  },
+                  {
+                    "id": "t1",
+                    "number": "1",
+                    "seats": 4,
+                    "open_session": {
+                      "id": "s1",
+                      "opened_at": "2026-09-14T18:00:00Z",
+                      "bill_total_pesewas": 13300,
+                      "paid_pesewas": 0,
+                      "order_count": 1,
+                      "balance_pesewas": 13300,
+                      "state": "sent"
                     },
-                    {
-                      "id": "t1",
-                      "number": "1",
-                      "seats": 4,
-                      "state_chip": "ordered",
-                      "open_session": {
-                        "id": "s1",
-                        "opened_at": "2026-09-14T18:00:00Z",
-                        "party_size": 2,
-                        "seated_minutes": 45,
-                        "bill_total_pesewas": 13300,
-                        "paid_pesewas": 0,
-                        "order_count": 1
-                      }
-                    }
-                  ]
-                }
+                    "is_active": true
+                  }
+                ]
               }
             }
           }
@@ -630,6 +623,289 @@
               "application/json": {
                 "example": {
                   "events": []
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/kds/tickets": {
+      "get": {
+        "operationId": "kds_tickets",
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {
+              "application/json": {
+                "example": [
+                  {
+                    "order_id": "o-1001",
+                    "order_number": 1001,
+                    "table_number": "7",
+                    "status": "SUBMITTED",
+                    "submitted_at": "2020-01-01T00:00:00Z",
+                    "acknowledged_at": null,
+                    "ready_at": null,
+                    "items": [
+                      {
+                        "item_id": "i-1",
+                        "menu_item_id": "mi-i-1",
+                        "name": "Jollof Rice with Grilled Chicken",
+                        "quantity": 2,
+                        "modifiers": [
+                          {
+                            "id": "m-1",
+                            "name": "Extra hot",
+                            "price_pesewas": 0
+                          }
+                        ],
+                        "notes": "no onions",
+                        "prep_station": "KITCHEN",
+                        "course": 1,
+                        "status": "PENDING",
+                        "unit_price_pesewas": 7500,
+                        "line_total_pesewas": 15000
+                      },
+                      {
+                        "item_id": "i-2",
+                        "menu_item_id": "mi-i-2",
+                        "name": "Kelewele",
+                        "quantity": 1,
+                        "modifiers": [],
+                        "notes": "",
+                        "prep_station": "KITCHEN",
+                        "course": 1,
+                        "status": "PENDING",
+                        "unit_price_pesewas": 7500,
+                        "line_total_pesewas": 7500
+                      }
+                    ]
+                  },
+                  {
+                    "order_id": "o-1002",
+                    "order_number": 1002,
+                    "table_number": "3",
+                    "status": "PREPARING",
+                    "submitted_at": "2020-01-01T00:00:00Z",
+                    "acknowledged_at": "2020-01-01T00:01:00Z",
+                    "ready_at": null,
+                    "items": [
+                      {
+                        "item_id": "i-3",
+                        "menu_item_id": "mi-i-3",
+                        "name": "Whole Grilled Tilapia",
+                        "quantity": 1,
+                        "modifiers": [],
+                        "notes": "",
+                        "prep_station": "GRILL",
+                        "course": 1,
+                        "status": "PENDING",
+                        "unit_price_pesewas": 7500,
+                        "line_total_pesewas": 7500
+                      }
+                    ]
+                  },
+                  {
+                    "order_id": "o-1003",
+                    "order_number": 1003,
+                    "table_number": "9",
+                    "status": "READY",
+                    "submitted_at": "2020-01-01T00:00:00Z",
+                    "acknowledged_at": "2020-01-01T00:02:00Z",
+                    "ready_at": "2020-01-01T00:10:00Z",
+                    "items": [
+                      {
+                        "item_id": "i-4",
+                        "menu_item_id": "mi-i-4",
+                        "name": "Club Beer",
+                        "quantity": 2,
+                        "modifiers": [],
+                        "notes": "",
+                        "prep_station": "BAR",
+                        "course": 1,
+                        "status": "READY",
+                        "unit_price_pesewas": 7500,
+                        "line_total_pesewas": 15000
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orders/{id}/ack": {
+      "post": {
+        "operationId": "orders_ack",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {
+              "application/json": {
+                "example": {
+                  "id": "o-1001",
+                  "status": "PREPARING"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orders/{id}/ready": {
+      "post": {
+        "operationId": "orders_ready",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {
+              "application/json": {
+                "example": {
+                  "id": "o-1001",
+                  "status": "PREPARING"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orders/{id}/serve": {
+      "post": {
+        "operationId": "orders_serve",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {
+              "application/json": {
+                "example": {
+                  "id": "o-1001",
+                  "status": "PREPARING"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orders/{id}/items/{item_id}/ready": {
+      "post": {
+        "operationId": "orders_item_ready",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {
+              "application/json": {
+                "example": {
+                  "id": "o-1001",
+                  "status": "PREPARING"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/menu/items/{item_id}/86": {
+      "post": {
+        "operationId": "menu_item_86",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {
+              "application/json": {
+                "example": {
+                  "id": "mi-1",
+                  "is_available": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/menu/items/{item_id}/restore": {
+      "post": {
+        "operationId": "menu_item_restore",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {
+              "application/json": {
+                "example": {
+                  "id": "mi-1",
+                  "is_available": true
                 }
               }
             }

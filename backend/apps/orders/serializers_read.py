@@ -138,7 +138,8 @@ def kds_tickets(*, station: str | None = None) -> list[dict[str, Any]]:
                 "ready_at": (
                     order.ready_at.isoformat().replace("+00:00", "Z") if order.ready_at else None
                 ),
-                "items": [item_to_line_dict(i) for i in items],
+                # The display marks lines done one at a time, so each carries its own status.
+                "items": [{**item_to_line_dict(i), "status": i.status} for i in items],
             }
         )
     return out

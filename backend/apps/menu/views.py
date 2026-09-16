@@ -10,7 +10,8 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from apps.accounts.principals import current_principal
+from apps.accounts.principals import GuestAuthentication, current_principal
+from apps.accounts.throttles import GuestThrottle
 from apps.core.commands import CommandContext, CommandOutcome
 from apps.core.permissions import RolePermission
 from apps.core.roles import STAFF_ROLES, ActorRole, AuthorisationPurpose
@@ -54,6 +55,22 @@ class MenuView(APIView):
         response["ETag"] = quoted
         response["Cache-Control"] = "private, must-revalidate"
         return response
+
+
+class GuestMenuView(MenuView):
+    """GET /guest/menu — the same menu on the sandboxed guest router (guest token only, throttled)."""
+
+    authentication_classes = [GuestAuthentication]
+    throttle_classes = [GuestThrottle]
+    allowed_roles = (ActorRole.GUEST,)
+
+    @extend_schema(
+        operation_id="guest_menu_get",
+        summary="Full menu for a guest token",
+        responses={200: dict, 304: None},
+    )
+    def get(self, request: Request) -> Response:
+        return super().get(request)
 
 
 class EightySixView(CommandView):

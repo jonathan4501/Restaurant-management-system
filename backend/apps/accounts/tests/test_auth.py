@@ -422,3 +422,34 @@ def test_assign_enrolment_code_format(restaurant) -> None:
     code = assign_enrolment_code(device)
     assert len(normalize_enrolment_code(code)) == 8
     assert "-" in code
+
+
+def test_devices_me_answers_to_device_token_alone(api, restaurant, device, waiter) -> None:
+    """The PIN pad lists staff before anyone signs in: no bearer, just the device token."""
+    dev, token = device
+    response = api.get("/api/v1/devices/me", HTTP_X_DEVICE_TOKEN=token)
+    assert response.status_code == 200
+    assert response.data["device_id"] == str(dev.id)
+    assert {"id": str(waiter.id), "name": waiter.full_name, "role": "WAITER"} in response.data[
+        "staff"
+    ]
+    assert api.get("/api/v1/devices/me").status_code == 401
+    assert api.get("/api/v1/devices/me", HTTP_X_DEVICE_TOKEN="not-a-real-token").status_code == 401
+
+
+def test_qr_entry_returns_table_number_and_guest_reads_menu(api, restaurant, waiter) -> None:
+    table = Table.objects.create(number="9", qr_token=Table.new_qr_token())
+    _open_session(restaurant, waiter, table)
+
+    entered = api.post(f"/api/v1/guest/sessions/{table.qr_token}", {}, format="json", **_headers())
+    assert entered.status_code == 200, entered.data
+    assert entered.data["table_number"] == "9"
+    assert entered.data["mode"] == "qr"
+
+    guest = f"Bearer {entered.data['token']}"
+    menu = api.get("/api/v1/guest/menu", HTTP_AUTHORIZATION=guest)
+    assert menu.status_code == 200
+    assert "categories" in menu.data
+    # No token, or a staff-only route with a guest token, is refused.
+    assert api.get("/api/v1/guest/menu").status_code == 401
+    assert api.get("/api/v1/tables", HTTP_AUTHORIZATION=guest).status_code == 403

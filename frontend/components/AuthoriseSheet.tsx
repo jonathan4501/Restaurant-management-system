@@ -15,7 +15,6 @@ const REASON_CODES: Record<AuthPurpose, string[]> = {
   DRAWER_MOVEMENT: ["NO_SALE", "SUPPLIER_PAID", "CHANGE_FLOAT", "OTHER"],
   PAYMENT_VOID: ["WRONG_AMOUNT", "WRONG_METHOD", "DUPLICATE", "OTHER"],
   PRICE_CHANGE_IN_SERVICE: ["MENU_ERROR", "OTHER"],
-  GUEST_EXIT: ["OTHER"],
 };
 
 interface AuthoriseSheetProps {
