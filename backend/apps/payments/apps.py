@@ -9,6 +9,7 @@ class PaymentsConfig(AppConfig):
     def ready(self) -> None:
         from apps.core.projections import register_projection_model
 
+        from . import projector  # noqa: F401
         from .models import DrawerMovement, Payment, Shift
 
         register_projection_model(Shift)

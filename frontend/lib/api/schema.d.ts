@@ -106,6 +106,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/bills/open": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description GET /bills/open — the cashier's board: what is still owing, and what can be paid yet. */
+        get: operations["bills_open"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/devices/enrol": {
         parameters: {
             query?: never;
@@ -665,6 +682,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/payments/{payment_id}/void": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["payments_void"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sessions": {
         parameters: {
             query?: never;
@@ -746,6 +779,121 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sessions/{session_id}/payments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["sessions_record_payment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sessions/{session_id}/reopen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Reopening a settled bill is the classic leak, so it needs a manager and tells the owner. */
+        post: operations["sessions_reopen"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shifts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["shifts_open"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shifts/{shift_id}/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["shifts_close"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shifts/{shift_id}/movements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Cash moving with no sale behind it. Always a manager's PIN and a reason. */
+        post: operations["shifts_movement"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shifts/{shift_id}/z-report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["shifts_z_report"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/shifts/current": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description GET /shifts/current — the caller's open shift, or null so the UI shows the open-shift screen. */
+        get: operations["shifts_current"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/tables": {
         parameters: {
             query?: never;
@@ -793,6 +941,11 @@ export interface components {
              */
             purpose: "VOID_AFTER_ACK" | "DISCOUNT" | "COMP" | "PRICE_OVERRIDE" | "REOPEN" | "DRAWER_MOVEMENT" | "PAYMENT_VOID" | "PRICE_CHANGE_IN_SERVICE";
         };
+        CloseShiftInputRequest: {
+            declared_cash_pesewas: number;
+            /** @default  */
+            note: string;
+        };
         CompInputRequest: {
             reason_code?: string;
             /** @default  */
@@ -806,6 +959,20 @@ export interface components {
              */
             kind: "PERCENT" | "AMOUNT";
             value: number;
+            reason_code?: string;
+            /** @default  */
+            note: string;
+        };
+        DrawerMovementInputRequest: {
+            /**
+             * @description * `NO_SALE` - No Sale
+             *     * `PAID_OUT` - Paid Out
+             *     * `PAID_IN` - Paid In
+             * @enum {string}
+             */
+            kind: "NO_SALE" | "PAID_OUT" | "PAID_IN";
+            /** @default 0 */
+            amount_pesewas: number;
             reason_code?: string;
             /** @default  */
             note: string;
@@ -840,6 +1007,11 @@ export interface components {
             table_id: string;
             party_size?: number | null;
         };
+        OpenShiftInputRequest: {
+            /** Format: uuid */
+            id: string;
+            opening_float_pesewas: number;
+        };
         PinLoginInputRequest: {
             /** Format: uuid */
             staff_id: string;
@@ -854,8 +1026,37 @@ export interface components {
             /** @default  */
             note: string;
         };
+        RecordPaymentInputRequest: {
+            /** Format: uuid */
+            id: string;
+            /**
+             * @description * `CASH` - Cash
+             *     * `MOMO_MTN` - Momo Mtn
+             *     * `MOMO_TELECEL` - Momo Telecel
+             *     * `MOMO_AT` - Momo At
+             *     * `CARD` - Card
+             *     * `BANK` - Bank
+             * @enum {string}
+             */
+            method: "CASH" | "MOMO_MTN" | "MOMO_TELECEL" | "MOMO_AT" | "CARD" | "BANK";
+            amount_pesewas: number;
+            tendered_pesewas?: number | null;
+            external_reference?: string | null;
+            /** Format: uuid */
+            order_id?: string | null;
+        };
+        ReopenSessionInputRequest: {
+            reason_code?: string;
+            /** @default  */
+            note: string;
+        };
         VoidInputRequest: {
             reason_code: string;
+            /** @default  */
+            note: string;
+        };
+        VoidPaymentInputRequest: {
+            reason_code?: string;
             /** @default  */
             note: string;
         };
@@ -1019,6 +1220,30 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    bills_open: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Enrolled device token. Required for every staff request. */
+                "X-Device-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
             };
         };
     };
@@ -1939,6 +2164,40 @@ export interface operations {
             };
         };
     };
+    payments_void: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description **Required by the server.** Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
+                "Idempotency-Key"?: string;
+                /** @description The device's clock at send time (ISO 8601). Stored for audit; never used for ordering. */
+                "X-Client-Time"?: string;
+                /** @description Enrolled device token. Required for every staff request. */
+                "X-Device-Token"?: string;
+            };
+            path: {
+                payment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["VoidPaymentInputRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
     sessions_open: {
         parameters: {
             query?: never;
@@ -2081,6 +2340,224 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+        };
+    };
+    sessions_record_payment: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description **Required by the server.** Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
+                "Idempotency-Key"?: string;
+                /** @description The device's clock at send time (ISO 8601). Stored for audit; never used for ordering. */
+                "X-Client-Time"?: string;
+                /** @description Enrolled device token. Required for every staff request. */
+                "X-Device-Token"?: string;
+            };
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecordPaymentInputRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    sessions_reopen: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description **Required by the server.** Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
+                "Idempotency-Key"?: string;
+                /** @description The device's clock at send time (ISO 8601). Stored for audit; never used for ordering. */
+                "X-Client-Time"?: string;
+                /** @description Enrolled device token. Required for every staff request. */
+                "X-Device-Token"?: string;
+            };
+            path: {
+                session_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ReopenSessionInputRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    shifts_open: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description **Required by the server.** Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
+                "Idempotency-Key"?: string;
+                /** @description The device's clock at send time (ISO 8601). Stored for audit; never used for ordering. */
+                "X-Client-Time"?: string;
+                /** @description Enrolled device token. Required for every staff request. */
+                "X-Device-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OpenShiftInputRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    shifts_close: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description **Required by the server.** Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
+                "Idempotency-Key"?: string;
+                /** @description The device's clock at send time (ISO 8601). Stored for audit; never used for ordering. */
+                "X-Client-Time"?: string;
+                /** @description Enrolled device token. Required for every staff request. */
+                "X-Device-Token"?: string;
+            };
+            path: {
+                shift_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CloseShiftInputRequest"];
+            };
+        };
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    shifts_movement: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description **Required by the server.** Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
+                "Idempotency-Key"?: string;
+                /** @description The device's clock at send time (ISO 8601). Stored for audit; never used for ordering. */
+                "X-Client-Time"?: string;
+                /** @description Enrolled device token. Required for every staff request. */
+                "X-Device-Token"?: string;
+            };
+            path: {
+                shift_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DrawerMovementInputRequest"];
+            };
+        };
+        responses: {
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    shifts_z_report: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Enrolled device token. Required for every staff request. */
+                "X-Device-Token"?: string;
+            };
+            path: {
+                shift_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    shifts_current: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Enrolled device token. Required for every staff request. */
+                "X-Device-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
             };
         };
     };
