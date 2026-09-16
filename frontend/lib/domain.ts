@@ -27,6 +27,51 @@ export interface MenuCategory { id: string; name: string; sort_order: number; it
 export interface MenuResponse { categories: MenuCategory[]; }
 export interface OpenSessionSummary { id: string; opened_at: string; bill_total_pesewas: number; paid_pesewas: number; balance_pesewas: number; order_count: number; state: SessionState | null; }
 export interface TableRow { id: string; number: string; seats: number | null; is_active: boolean; open_session: OpenSessionSummary | null; }
+export type AggregateType = "ORDER" | "SESSION" | "SHIFT" | "MENU_ITEM" | "DEVICE" | "STAFF";
+export type PrepStation = "KITCHEN" | "GRILL" | "BAR";
+export type TicketStatus = "SUBMITTED" | "PREPARING" | "READY";
+export type OrderItemStatus = "PENDING" | "PREPARING" | "READY" | "SERVED" | "VOIDED";
+
+/** The SSE `data:` object and each row of GET /events. docs/09-api-contract.md §4. */
+export interface EventEnvelope {
+  id: string;
+  seq: number;
+  type: string;
+  aggregate_type: AggregateType;
+  aggregate_id: string;
+  order_id: string | null;
+  actor_role: string | null;
+  reason_code: string | null;
+  created_at: string;
+  payload: Record<string, unknown>;
+}
+
+export interface TicketLine {
+  item_id: string;
+  menu_item_id: string;
+  name: string;
+  quantity: number;
+  modifiers: DraftModifier[];
+  notes: string;
+  prep_station: PrepStation;
+  course: number;
+  status: OrderItemStatus;
+  unit_price_pesewas: number;
+  line_total_pesewas: number;
+}
+
+/** A row of GET /kds/tickets — everything a cook needs without a second request. */
+export interface KdsTicket {
+  order_id: string;
+  order_number: number | null;
+  table_number: string;
+  status: TicketStatus;
+  submitted_at: string | null;
+  acknowledged_at: string | null;
+  ready_at: string | null;
+  items: TicketLine[];
+}
+
 export interface DraftModifier { id: string; name: string; price_pesewas: number; }
 export interface DraftLine { client_id: string; menu_item_id: string; name_snapshot: string; unit_price_pesewas: number; quantity: number; modifiers: DraftModifier[]; notes: string; }
 

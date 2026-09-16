@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from drf_spectacular.utils import extend_schema
+from drf_spectacular.utils import OpenApiParameter, extend_schema
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -198,7 +198,18 @@ class KdsTicketsView(APIView):
     permission_classes = [RolePermission]
     allowed_roles = KITCHEN
 
-    @extend_schema(operation_id="kds_tickets", responses={200: list})
+    @extend_schema(
+        operation_id="kds_tickets",
+        parameters=[
+            OpenApiParameter(
+                "station",
+                str,
+                description="Show only lines for one prep station: KITCHEN, GRILL or BAR.",
+                enum=["KITCHEN", "GRILL", "BAR"],
+            )
+        ],
+        responses={200: list},
+    )
     def get(self, request: Request) -> Response:
         station = request.query_params.get("station")
         return Response(kds_tickets(station=station))

@@ -1558,7 +1558,10 @@ export interface operations {
     };
     kds_tickets: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Show only lines for one prep station: KITCHEN, GRILL or BAR. */
+                station?: "BAR" | "GRILL" | "KITCHEN";
+            };
             header?: {
                 /** @description Enrolled device token. Required for every staff request. */
                 "X-Device-Token"?: string;
