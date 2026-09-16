@@ -74,7 +74,10 @@ class TenantManager(models.Manager):
         return super().get_queryset()
 
     def create(self, **kwargs: object) -> Any:
-        kwargs.setdefault("restaurant_id", require_current_restaurant())
+        # Only default the tenant when the caller named neither form. setdefault() alone would add
+        # restaurant_id beside an explicit restaurant=..., and the context would silently win.
+        if "restaurant" not in kwargs and "restaurant_id" not in kwargs:
+            kwargs["restaurant_id"] = require_current_restaurant()
         return super().create(**kwargs)
 
 

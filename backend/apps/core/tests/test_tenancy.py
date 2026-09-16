@@ -25,3 +25,24 @@ def test_cross_tenant_lookup_by_id_is_not_found(restaurant, other_restaurant, pi
     with restaurant_context(other_restaurant.id):
         theirs = Staff.objects.create(full_name="Theirs", role="WAITER", pin_hash=pin_hash)
     assert not Staff.objects.filter(id=theirs.id).exists()
+
+
+@pytest.mark.django_db
+def test_create_honours_an_explicit_restaurant(restaurant, other_restaurant):
+    """Passing restaurant=... must win over the context; otherwise a row lands in the wrong tenant."""
+    from apps.floor.models import Table
+
+    explicit = Table.objects.create(
+        restaurant=other_restaurant, number="99", qr_token=Table.new_qr_token()
+    )
+    assert explicit.restaurant_id == other_restaurant.id
+
+    by_id = Table.objects.create(
+        restaurant_id=other_restaurant.id, number="98", qr_token=Table.new_qr_token()
+    )
+    assert by_id.restaurant_id == other_restaurant.id
+
+    # Nothing named: the context tenant, as before.
+    implicit = Table.objects.create(number="97", qr_token=Table.new_qr_token())
+    assert implicit.restaurant_id == restaurant.id
+    assert list(Table.objects.values_list("number", flat=True)) == ["97"]
