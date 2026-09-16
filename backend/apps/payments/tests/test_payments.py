@@ -14,6 +14,13 @@ from apps.payments.commands import normalise_reference
 from apps.payments.models import DrawerMovement, Payment, PaymentMethod, Shift
 
 from .conftest import authorisation, headers, key, open_session, open_shift, pay, serve_round
+from .service_script import (
+    CANCEL_REASON,
+    EXPECTED,
+    VOID_AFTER_ACK_REASON,
+    expected_totals,
+    run_service_script,
+)
 
 pytestmark = pytest.mark.django_db
 
@@ -405,64 +412,110 @@ def test_reference_normalisation():
     assert normalise_reference(None) is None
 
 
-def test_projections_rebuild_from_the_event_log_after_a_full_service(
-    api, restaurant, table, jollof, waiter_auth, kitchen_auth, cashier_auth, manager
-):
+def test_projections_rebuild_from_the_event_log_after_a_full_service(restaurant):
     """The exit criterion: a scripted service, then the projections must equal a replay of the log."""
-    _, _, _, dev = cashier_auth
-    shift_id = open_shift(api, cashier_auth, float_pesewas=20000)
+    service = run_service_script(restaurant)
 
-    tables = [table] + [
-        Table.objects.create(number=str(n), qr_token=Table.new_qr_token()) for n in range(20, 24)
-    ]
-    methods = [
+    # The service really did contain everything the exit criterion asks for.
+    assert len(service.tables) == 20
+    assert {p.method for p in Payment.objects.all()} == {
         PaymentMethod.CASH,
         PaymentMethod.MOMO_MTN,
-        PaymentMethod.CARD,
         PaymentMethod.MOMO_TELECEL,
-        PaymentMethod.CASH,
-    ]
-    first_payment_id = None
-    for seat, (t, method) in enumerate(zip(tables, methods, strict=True), start=1):
-        session_id = open_session(api, waiter_auth, t)
-        serve_round(api, waiter_auth, kitchen_auth, session_id, str(jollof.id), quantity=seat)
-        amount = 7500 * seat
-        extra = {"tendered_pesewas": amount} if method == PaymentMethod.CASH else {}
-        response = pay(api, cashier_auth, session_id, method, amount, **extra)
-        assert response.status_code == 201, response.data
-        first_payment_id = first_payment_id or response.data["id"]
+        PaymentMethod.MOMO_AT,
+        PaymentMethod.CARD,
+        PaymentMethod.BANK,
+    }
+    assert Payment.objects.filter(voided_at__isnull=False).count() == 2
+    assert OrderEvent.objects.filter(event_type="SESSION_REOPENED").count() == 2
+    assert OrderEvent.objects.filter(event_type="DISCOUNT_APPLIED").count() == 1
+    assert OrderEvent.objects.filter(event_type="COMP_APPLIED").count() == 1
+    assert {m.kind for m in DrawerMovement.objects.all()} == {"PAID_OUT", "PAID_IN", "NO_SALE"}
+    assert Shift.objects.filter(closed_at__isnull=False).count() == 2
 
-    # One void and one reopen, both manager-authorised.
-    api.post(
-        f"/api/v1/payments/{first_payment_id}/void",
-        {
-            "authorisation": authorisation(
-                manager, dev, AuthorisationPurpose.PAYMENT_VOID, "WRONG_METHOD"
-            )
-        },
-        format="json",
-        **headers(cashier_auth),
-    )
-    api.post(
-        f"/api/v1/shifts/{shift_id}/movements",
-        {
-            "kind": "PAID_IN",
-            "amount_pesewas": 5000,
-            "authorisation": authorisation(
-                manager, dev, AuthorisationPurpose.DRAWER_MOVEMENT, "CHANGE_FLOAT"
-            ),
-        },
-        format="json",
-        **headers(cashier_auth),
-    )
-    api.post(
-        f"/api/v1/shifts/{shift_id}/close",
-        {"declared_cash_pesewas": 100000},
-        format="json",
-        **headers(cashier_auth),
-    )
+    # A round pulled before the kitchen saw it needs no PIN; one cooked and then voided does.
+    voids = {e.reason_code: e for e in OrderEvent.objects.filter(event_type="ORDER_VOIDED")}
+    assert set(voids) == {CANCEL_REASON, VOID_AFTER_ACK_REASON}
+    assert voids[CANCEL_REASON].authorised_by_id is None
+    assert voids[VOID_AFTER_ACK_REASON].authorised_by_id is not None
 
     assert verify(restaurant.id) == {}, "projections drifted from the event stream"
+
+
+def test_service_script_totals_are_the_ones_the_owner_can_add_up():
+    """
+    The plan's arithmetic, written out by hand. `service_script` derives these from `TABLE_PLAN`;
+    if a figure here and a figure there disagree, the plan moved and WS06's assertions are stale.
+    """
+    totals = expected_totals()
+
+    assert totals.money_taken_pesewas == 498500  # GH₵ 4,985.00 through the two tills
+    assert totals.money_taken_by_method == {
+        "CASH": 265800,
+        "MOMO_MTN": 129600,
+        "MOMO_TELECEL": 19000,
+        "MOMO_AT": 17500,
+        "CARD": 36600,
+        "BANK": 30000,
+    }
+    assert sum(totals.money_taken_by_method.values()) == totals.money_taken_pesewas
+    assert (totals.bills_settled, totals.bills_open) == (18, 2)
+    assert totals.covers == 57
+    assert totals.settled_bill_total_pesewas == 468500
+    assert totals.outstanding_pesewas == 47700  # Terrace 3 owes 37800, Terrace 4 owes 9900
+    assert (totals.discounts_pesewas, totals.comps_pesewas) == (4500, 5000)
+    assert (totals.voided_orders_pesewas, totals.cancelled_orders_pesewas) == (5000, 3600)
+    assert (totals.voided_payments_pesewas, totals.payment_voids) == (52500, 2)
+    assert (totals.manager_reopens, totals.sessions_reopened) == (1, 2)
+
+    # Every line served, less what was given away, is exactly what the bills came to.
+    given_away = totals.discounts_pesewas + totals.comps_pesewas
+    assert sum(totals.item_value_pesewas.values()) - given_away == (
+        totals.settled_bill_total_pesewas + totals.open_bill_total_pesewas
+    )
+    # And the money taken is the settled bills plus what has been paid towards the open ones.
+    assert totals.money_taken_pesewas == totals.settled_bill_total_pesewas + (
+        totals.open_bill_total_pesewas - totals.outstanding_pesewas
+    )
+
+    first, second = totals.shifts
+    assert (first.expected_cash_pesewas, first.variance_pesewas) == (200400, -2000)
+    assert (second.expected_cash_pesewas, second.variance_pesewas) == (95400, 0)
+    assert first.money_taken_pesewas + second.money_taken_pesewas == totals.money_taken_pesewas
+
+
+def test_service_script_z_reports_reconcile_by_hand(restaurant):
+    """WS05's exit criterion: both Z-reports, and the board of what is still owing, add up."""
+    service = run_service_script(restaurant)
+    api = service.cast.api
+
+    for shift, cashier in zip(service.shifts, service.cast.cashiers, strict=True):
+        report = api.get(f"/api/v1/shifts/{shift.id}/z-report", **headers(cashier)).data
+        planned = shift.totals
+        assert report["cashier_name"] == planned.cashier_name
+        assert report["opening_float_pesewas"] == planned.opening_float_pesewas
+        assert report["cash_payments_pesewas"] == planned.cash_payments_pesewas
+        assert report["paid_out_pesewas"] == planned.paid_out_pesewas
+        assert report["paid_in_pesewas"] == planned.paid_in_pesewas
+        assert report["expected_cash_pesewas"] == planned.expected_cash_pesewas
+        assert report["declared_cash_pesewas"] == planned.declared_cash_pesewas
+        assert report["variance_pesewas"] == planned.variance_pesewas
+        assert report["totals_by_method"] == planned.totals_by_method
+        assert report["money_taken_pesewas"] == planned.money_taken_pesewas
+        assert report["payment_count"] == planned.payment_count
+
+    bills = api.get("/api/v1/bills/open", **headers(service.cast.cashiers[1])).data
+    assert bills["outstanding_pesewas"] == EXPECTED.outstanding_pesewas
+    assert {b["table_number"]: b["state"] for b in bills["bills"]} == {
+        "Terrace 3": "part_paid",
+        "Terrace 4": "ready_to_pay",
+    }
+    assert [t.number for t in service.open_tables] == ["Terrace 3", "Terrace 4"]
+    assert TableSession.objects.filter(settled_at__isnull=False).count() == EXPECTED.bills_settled
+    assert TableSession.objects.filter(reopened_count__gt=0).count() == EXPECTED.sessions_reopened
+    assert sum(int(s.paid_pesewas) for s in TableSession.objects.all()) == (
+        EXPECTED.money_taken_pesewas
+    )
 
 
 def test_z_report_reconciles_by_hand(
