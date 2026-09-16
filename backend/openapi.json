@@ -608,6 +608,22 @@ paths:
   /api/v1/kds/tickets:
     get:
       operationId: kds_tickets
+      parameters:
+      - in: query
+        name: station
+        schema:
+          type: string
+          enum:
+          - BAR
+          - GRILL
+          - KITCHEN
+        description: 'Show only lines for one prep station: KITCHEN, GRILL or BAR.'
+      - name: X-Device-Token
+        in: header
+        required: false
+        description: Enrolled device token. Required for every staff request.
+        schema:
+          type: string
       tags:
       - kds
       security:
@@ -621,13 +637,6 @@ paths:
                 additionalProperties: {}
                 description: Unspecified response body
           description: ''
-      parameters:
-      - name: X-Device-Token
-        in: header
-        required: false
-        description: Enrolled device token. Required for every staff request.
-        schema:
-          type: string
   /api/v1/menu:
     get:
       operationId: menu_get
