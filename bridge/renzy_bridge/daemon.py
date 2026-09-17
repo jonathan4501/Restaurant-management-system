@@ -119,7 +119,9 @@ class Bridge:
     def _print_one(self, job: QueuedJob) -> bool:
         target = self.config.printer(job.printer)
         if target is None:
-            log.error("job %s wants printer '%s', which is not configured", job.job_key, job.printer)
+            log.error(
+                "job %s wants printer '%s', which is not configured", job.job_key, job.printer
+            )
             self.store.record_failure(job.job_key, f"printer '{job.printer}' not configured")
             return False
 
@@ -131,8 +133,7 @@ class Bridge:
             except ApiError as err:
                 # A deterministic refusal (404 / not authorised). Retrying forever will not fix it.
                 log.error("dropping %s: %s", job.description or job.job_key, err)
-                self.store.record_failure(job.job_key, str(err))
-                self.store.mark_printed(job.job_key)
+                self.store.abandon(job.job_key, str(err))
                 return False
             except ApiUnavailable as err:
                 log.warning("cannot fetch %s yet: %s", job.description or job.job_key, err)
@@ -144,7 +145,10 @@ class Bridge:
             printer_io.send(target, payload, timeout=self.config.printer_timeout_seconds)
         except printer_io.PrinterUnreachable as err:
             log.warning(
-                "%s still queued (attempt %s): %s", job.description or job.job_key, job.attempts + 1, err
+                "%s still queued (attempt %s): %s",
+                job.description or job.job_key,
+                job.attempts + 1,
+                err,
             )
             self.store.record_failure(job.job_key, str(err))
             return False
@@ -197,7 +201,8 @@ class Bridge:
                 log.error("%s", err)
             except ApiUnavailable as err:
                 log.warning("stream unavailable: %s", err)
-            except Exception:  # noqa: BLE001 - a daemon must not die on an unexpected error
+            except Exception:
+                # A daemon must not die on an unexpected error; the next reconnect continues.
                 log.exception("unexpected error in the stream loop")
 
             if self._stop:
