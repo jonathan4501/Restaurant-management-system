@@ -9,6 +9,7 @@ later. Getting that split wrong is how a ticket is either dropped or retried for
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 
 import httpx
@@ -19,10 +20,12 @@ from renzy_bridge.api import ApiClient, ApiError, ApiUnavailable
 
 STREAM = "/api/v1/print/stream"
 
+Handler = Callable[[httpx.Request], httpx.Response]
 
-def client_for(tmp_path: Path, handler: object) -> ApiClient:
+
+def client_for(tmp_path: Path, handler: Handler) -> ApiClient:
     config = make_config(tmp_path)
-    transport = httpx.MockTransport(handler)  # type: ignore[arg-type]
+    transport = httpx.MockTransport(handler)
     return ApiClient(
         config,
         client=httpx.Client(

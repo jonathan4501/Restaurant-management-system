@@ -37,19 +37,22 @@ def test_a_printer_without_a_port_gets_the_escpos_default() -> None:
 
 
 def test_a_printer_may_be_a_table_with_an_explicit_port() -> None:
-    config = from_dict({**MINIMAL, "printers": {"bar": {"host": "10.0.0.9", "port": 9101}}})
-    assert config.printers["bar"] == Printer("bar", "10.0.0.9", 9101)
+    config = from_dict({**MINIMAL, "printers": {"kitchen": {"host": "10.0.0.9", "port": 9101}}})
+    assert config.printers["kitchen"] == Printer("kitchen", "10.0.0.9", 9101)
 
 
 def test_a_trailing_slash_on_the_api_url_is_dropped() -> None:
     """Otherwise every request path would be doubled up and every fetch would 404."""
-    assert from_dict({**MINIMAL, "api": {**MINIMAL["api"], "url": "https://x/"}}).api_url == "https://x"
+    assert (
+        from_dict({**MINIMAL, "api": {**MINIMAL["api"], "url": "https://x/"}}).api_url
+        == "https://x"
+    )
 
 
 @pytest.mark.parametrize(
     ("raw", "expected"),
     [
-        ({"printers": {"kitchen": "h"}}, "[api] url is required"),
+        ({"printers": {"kitchen": "h"}}, r"\[api\] url is required"),
         ({"api": {"url": "https://x"}, "printers": {"kitchen": "h"}}, "device token is required"),
         ({"api": {"url": "https://x", "device_token": "t"}}, "At least one printer"),
         (
@@ -137,6 +140,8 @@ def test_the_example_documents_exactly_the_bridge_settings_that_exist() -> None:
     documented = set(tomllib.loads(example.read_text(encoding="utf-8")).get("bridge", {}))
     # Everything on Config that is not [api], [printers] or [stations] comes from [bridge].
     implemented = {
-        f.name for f in fields(Config) if f.name not in {"api_url", "device_token", "printers", "station_printers"}
+        f.name
+        for f in fields(Config)
+        if f.name not in {"api_url", "device_token", "printers", "station_printers"}
     }
     assert documented == implemented

@@ -84,9 +84,7 @@ class ApiClient:
         if last_event_id is not None:
             headers["Last-Event-ID"] = str(last_event_id)
         try:
-            with self._client.stream(
-                "GET", "/api/v1/print/stream", headers=headers
-            ) as response:
+            with self._client.stream("GET", "/api/v1/print/stream", headers=headers) as response:
                 if response.status_code in (401, 403):
                     raise ApiError(
                         f"stream refused ({response.status_code}). Enrol the Pi as a device with "

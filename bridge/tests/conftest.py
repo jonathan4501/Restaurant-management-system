@@ -25,7 +25,9 @@ from renzy_bridge.store import Store
 # The four goldens rendered and asserted byte-for-byte by
 # backend/apps/printing/tests/test_render.py. The bridge reuses them rather than regenerating
 # them: its job is to carry those exact bytes to a socket unchanged.
-GOLDENS = Path(__file__).resolve().parents[2] / "backend" / "apps" / "printing" / "tests" / "goldens"
+GOLDENS = (
+    Path(__file__).resolve().parents[2] / "backend" / "apps" / "printing" / "tests" / "goldens"
+)
 
 
 def golden(name: str) -> bytes:

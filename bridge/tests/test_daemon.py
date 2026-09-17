@@ -75,7 +75,12 @@ def bridge_with(config: Config, api: Any) -> Bridge:
 
 
 class OneShotBridge(Bridge):
-    """Runs the real loop, then stops after `budget` events so `run()` terminates in a test."""
+    """
+    Runs the real loop, then stops after `budget` events so `run()` terminates in a test.
+
+    Stop is deferred until after `drain()`: setting `_stop` inside `handle_event` would make the
+    real drain bail out before printing (that early-exit is intentional for SIGTERM).
+    """
 
     def __init__(self, *args: Any, budget: int = 1, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
@@ -84,9 +89,13 @@ class OneShotBridge(Bridge):
     def handle_event(self, event: StreamEvent) -> int:
         new = super().handle_event(event)
         self._budget -= 1
+        return new
+
+    def drain(self) -> int:
+        printed = super().drain()
         if self._budget <= 0:
             self.stop()
-        return new
+        return printed
 
 
 @pytest.fixture
