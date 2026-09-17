@@ -28,4 +28,5 @@ npm run typecheck
 npm run test:e2e
 ```
 
-Mock OpenAPI lives in `frontend/mock/openapi.json` until WS00 regenerates `backend/openapi.json`.
+`npm run types` and `npm run mock` both read `backend/openapi.json`, which drf-spectacular generates.
+It is the only schema for this API — regenerate it with `make openapi`, never hand-edit it.
