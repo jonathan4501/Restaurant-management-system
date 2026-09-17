@@ -54,11 +54,13 @@ def _name(names: dict[uuid.UUID, str], staff_id: uuid.UUID | None) -> str | None
 
 def order_number_gaps(day: date) -> list[int]:
     """Ticket numbers run 1..n per business date. A missing number means a ticket nobody can explain."""
-    present = set(
-        Order.objects.filter(business_date=day)
+    present: set[int] = {
+        n
+        for n in Order.objects.filter(business_date=day)
         .exclude(order_number__isnull=True)
         .values_list("order_number", flat=True)
-    )
+        if n is not None
+    }
     if not present:
         return []
     return [n for n in range(1, max(present) + 1) if n not in present]
@@ -76,9 +78,7 @@ def _voids_after_acknowledgement(start: datetime, end: datetime) -> list[dict[st
         ).order_by("-created_at")
         if is_flagged(event.event_type, event.payload)
     ]
-    names = _staff_names(
-        [e.actor_id for e in events] + [e.authorised_by_id for e in events]  # type: ignore[misc]
-    )
+    names = _staff_names([e.actor_id for e in events] + [e.authorised_by_id for e in events])
     orders = {
         o.id: o
         for o in Order.objects.filter(id__in=[e.order_id for e in events if e.order_id])
@@ -161,9 +161,7 @@ def _reopened_bills(start: datetime, end: datetime) -> list[dict[str, Any]]:
             idempotency_key__in=[e.idempotency_key for e in events],
         ).values_list("idempotency_key", flat=True)
     )
-    names = _staff_names(
-        [e.actor_id for e in events] + [e.authorised_by_id for e in events]  # type: ignore[misc]
-    )
+    names = _staff_names([e.actor_id for e in events] + [e.authorised_by_id for e in events])
     return [
         {
             "session_id": str(event.aggregate_id),
@@ -266,9 +264,7 @@ def today(restaurant: Restaurant) -> dict[str, Any]:
         "average_bill_pesewas": money_taken // bills if bills else 0,
         "open_bills": open_sessions.count(),
         "open_balance_pesewas": open_total - open_paid,
-        "orders_closed": Order.objects.filter(
-            business_date=day, status=OrderStatus.CLOSED
-        ).count(),
+        "orders_closed": Order.objects.filter(business_date=day, status=OrderStatus.CLOSED).count(),
     }
 
 
@@ -286,9 +282,7 @@ def _money_taken_by_hour(
     ).values_list("recorded_at", "amount_pesewas"):
         hour = recorded_at.astimezone(tz).hour
         by_hour[hour] = by_hour.get(hour, 0) + int(amount)
-    return [
-        {"hour": hour, "money_taken_pesewas": by_hour[hour]} for hour in sorted(by_hour)
-    ]
+    return [{"hour": hour, "money_taken_pesewas": by_hour[hour]} for hour in sorted(by_hour)]
 
 
 def _best_sellers(start_day: date, end_day: date, limit: int = 20) -> list[dict[str, Any]]:
@@ -345,7 +339,9 @@ def patterns(restaurant: Restaurant, start_day: date, end_day: date) -> dict[str
     payments = Payment.objects.filter(LIVE_PAYMENTS, recorded_at__gte=start, recorded_at__lt=end)
     method_mix = {
         row["method"]: int(row["total"] or 0)
-        for row in payments.values("method").annotate(total=Sum("amount_pesewas")).order_by("method")
+        for row in payments.values("method")
+        .annotate(total=Sum("amount_pesewas"))
+        .order_by("method")
     }
     return {
         "from": str(start_day),
@@ -397,9 +393,7 @@ def event_log(
     page = page[:limit]
     if flagged_only:
         page = [e for e in page if is_flagged(e.event_type, e.payload)]
-    names = _staff_names(
-        [e.actor_id for e in page] + [e.authorised_by_id for e in page]  # type: ignore[misc]
-    )
+    names = _staff_names([e.actor_id for e in page] + [e.authorised_by_id for e in page])
 
     return {
         "events": [

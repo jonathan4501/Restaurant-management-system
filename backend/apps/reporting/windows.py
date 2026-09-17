@@ -36,7 +36,9 @@ def day_bounds(restaurant: Restaurant, day: date) -> tuple[datetime, datetime]:
     return start_local, start_local + timedelta(days=1)
 
 
-def window_bounds(restaurant: Restaurant, start_day: date, end_day: date) -> tuple[datetime, datetime]:
+def window_bounds(
+    restaurant: Restaurant, start_day: date, end_day: date
+) -> tuple[datetime, datetime]:
     """[start, end) covering both business dates and every date between them."""
     start, _ = day_bounds(restaurant, start_day)
     _, end = day_bounds(restaurant, end_day)

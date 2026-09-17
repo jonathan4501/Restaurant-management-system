@@ -183,14 +183,18 @@ class HourlyMoneySerializer(serializers.Serializer):
 
 
 class BestSellerSerializer(serializers.Serializer):
-    name = serializers.CharField(help_text="The name snapshotted onto the line when it was ordered.")
+    name = serializers.CharField(
+        help_text="The name snapshotted onto the line when it was ordered."
+    )
     quantity = serializers.IntegerField()
     value_pesewas = serializers.IntegerField(help_text=f"Σ line totals. {PESEWAS}")
 
 
 class StationTimingSerializer(serializers.Serializer):
     station = serializers.CharField()
-    average_seconds = serializers.IntegerField(help_text="Acknowledged → ready, mean over the window.")
+    average_seconds = serializers.IntegerField(
+        help_text="Acknowledged → ready, mean over the window."
+    )
     lines = serializers.IntegerField()
 
 
@@ -247,7 +251,9 @@ class DailySalesSerializer(serializers.Serializer):
     money_taken_pesewas = serializers.IntegerField(help_text=MONEY_TAKEN)
     covers = serializers.IntegerField()
     orders_closed = serializers.IntegerField()
-    orders_voided = serializers.IntegerField(help_text="Every void, before or after acknowledgement.")
+    orders_voided = serializers.IntegerField(
+        help_text="Every void, before or after acknowledgement."
+    )
     void_value_pesewas = serializers.IntegerField(
         help_text=f"Value of voids after acknowledgement only — food that was cooked. {PESEWAS}"
     )
@@ -262,5 +268,7 @@ class DailySalesSerializer(serializers.Serializer):
 
 class DailySalesListSerializer(serializers.Serializer):
     days = DailySalesSerializer(many=True)
-    money_taken_pesewas = serializers.IntegerField(help_text=f"{MONEY_TAKEN} Summed over the window.")
+    money_taken_pesewas = serializers.IntegerField(
+        help_text=f"{MONEY_TAKEN} Summed over the window."
+    )
     covers = serializers.IntegerField()
