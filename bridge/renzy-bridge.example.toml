@@ -1,0 +1,48 @@
+# RENZY print bridge configuration.
+#
+# Install to /etc/renzy-bridge.toml, owned by the bridge user, mode 0600 — it holds a device token
+# that is as good as a password.
+#
+#   sudo install -o renzy -g renzy -m 0600 renzy-bridge.example.toml /etc/renzy-bridge.toml
+
+[api]
+# The public API base URL. No trailing slash.
+url = "https://api.renzy.app"
+
+# The device token returned by POST /api/v1/devices/enrol. The device must have been created with
+# allowed_roles = ['PRINTER']; a token for a waiter's tablet is refused.
+# Leave this out and set RENZY_DEVICE_TOKEN in the systemd unit's environment file instead.
+device_token = "replace-me"
+
+[printers]
+# Logical name = "host:port". Port defaults to 9100, which is what ESC/POS network printers use.
+#
+#   kitchen — the ticket printer by the pass. Gets ORDER_SUBMITTED.
+#   front   — the till printer. Gets SESSION_SETTLED and RECEIPT_REQUESTED.
+kitchen = "192.168.1.50:9100"
+front = "192.168.1.51:9100"
+
+# A second kitchen printer, if the bar prints its own drinks tickets.
+# bar = "192.168.1.52"
+
+[stations]
+# Optional. Maps a menu item's prep_station to a printer, so each station gets a ticket with only
+# its own lines on it. Omit this whole section and one full ticket goes to `kitchen` — which is the
+# right answer for a single-printer kitchen, and is how RENZY starts.
+#
+# KITCHEN = "kitchen"
+# BAR = "bar"
+
+[bridge]
+# Local queue and stream cursor. Survives restarts; must be writable by the bridge user.
+state_path = "/var/lib/renzy-bridge/state.sqlite3"
+
+# Reconnect backoff, seconds. Jittered, doubling from min to max.
+reconnect_min_seconds = 1.0
+reconnect_max_seconds = 30.0
+
+# How long to wait on a printer socket before giving up and re-queueing.
+printer_timeout_seconds = 5.0
+
+# How often to write the "healthcheck" line to the journal.
+healthcheck_seconds = 60.0
