@@ -1,0 +1,46 @@
+[Unit]
+Description=RENZY print bridge (ESC/POS kitchen tickets and receipts)
+Documentation=https://github.com/renzy/restaurant-management-system/blob/develop/bridge/README.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=renzy
+Group=renzy
+
+# Restart forever: this daemon losing is the kitchen losing paper. RestartSec keeps it from
+# hammering the API during a long outage; the daemon's own backoff handles the normal case.
+Restart=always
+RestartSec=5s
+
+Environment=PYTHONUNBUFFERED=1
+Environment=LOG_LEVEL=INFO
+# Optional: SENTRY_DSN, GIT_SHA, RENZY_DEVICE_TOKEN. Keep secrets here, not in the unit file.
+EnvironmentFile=-/etc/renzy-bridge.env
+
+ExecStart=/opt/renzy-bridge/.venv/bin/python -m renzy_bridge --config /etc/renzy-bridge.toml
+
+# systemd captures stdout into the journal; there is no log file to rotate on the SD card.
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=renzy-bridge
+
+# SIGTERM lets the daemon finish the job in its hand and leave the rest queued on disk.
+KillSignal=SIGTERM
+TimeoutStopSec=20s
+
+# The bridge reads one config file and writes one SQLite file. Nothing else needs to be reachable.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/renzy-bridge
+StateDirectory=renzy-bridge
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictSUIDSGID=true
+
+[Install]
+WantedBy=multi-user.target
