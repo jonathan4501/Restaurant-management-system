@@ -10,8 +10,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "types": "openapi-typescript ./mock/openapi.json -o lib/api/schema.d.ts",
-    "mock": "prism mock ./mock/openapi.json -p 4010 --host 127.0.0.1",
+    "types": "openapi-typescript ../backend/openapi.json -o lib/api/schema.d.ts",
+    "mock": "prism mock ../backend/openapi.json -p 4010 --host 127.0.0.1",
     "test:e2e": "playwright test"
   },
   "dependencies": {

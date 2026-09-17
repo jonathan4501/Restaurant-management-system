@@ -1550,6 +1550,56 @@ paths:
                 type: object
                 additionalProperties: {}
           description: ''
+  /api/v1/print/receipt:
+    post:
+      operationId: print_receipt
+      description: Appends `RECEIPT_REQUESTED` so the print bridge produces the guest's
+        copy. Every request is logged, and `reprint` is true when paper was already
+        produced for this bill. The sales record carries no tax line and no fiscal
+        reference (ADR-0005).
+      summary: Request a printed sales record
+      tags:
+      - print
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RequestReceiptInputRequest'
+        required: true
+      security:
+      - bearerAuth: []
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: {}
+          description: ''
+      parameters:
+      - name: Idempotency-Key
+        in: header
+        required: false
+        description: '**Required by the server.** Client-generated UUIDv7, unique
+          per command. Replays return the original response with `Idempotent-Replayed:
+          true`.'
+        schema:
+          type: string
+          format: uuid
+      - name: X-Client-Time
+        in: header
+        required: false
+        description: The device's clock at send time (ISO 8601). Stored for audit;
+          never used for ordering.
+        schema:
+          type: string
+          format: date-time
+      - name: X-Device-Token
+        in: header
+        required: false
+        description: Enrolled device token. Required for every staff request.
+        schema:
+          type: string
   /api/v1/sessions:
     post:
       operationId: sessions_open
@@ -2375,6 +2425,15 @@ components:
           type: string
           default: ''
           maxLength: 500
+    RequestReceiptInputRequest:
+      type: object
+      properties:
+        session_id:
+          type: string
+          format: uuid
+          description: The bill to print a sales record for.
+      required:
+      - session_id
     VoidInputRequest:
       type: object
       properties:

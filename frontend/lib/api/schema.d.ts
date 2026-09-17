@@ -698,6 +698,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/print/receipt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Request a printed sales record
+         * @description Appends `RECEIPT_REQUESTED` so the print bridge produces the guest's copy. Every request is logged, and `reprint` is true when paper was already produced for this bill. The sales record carries no tax line and no fiscal reference (ADR-0005).
+         */
+        post: operations["print_receipt"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sessions": {
         parameters: {
             query?: never;
@@ -1049,6 +1069,13 @@ export interface components {
             reason_code?: string;
             /** @default  */
             note: string;
+        };
+        RequestReceiptInputRequest: {
+            /**
+             * Format: uuid
+             * @description The bill to print a sales record for.
+             */
+            session_id: string;
         };
         VoidInputRequest: {
             reason_code: string;
@@ -2190,6 +2217,38 @@ export interface operations {
         };
         responses: {
             200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+        };
+    };
+    print_receipt: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description **Required by the server.** Client-generated UUIDv7, unique per command. Replays return the original response with `Idempotent-Replayed: true`. */
+                "Idempotency-Key"?: string;
+                /** @description The device's clock at send time (ISO 8601). Stored for audit; never used for ordering. */
+                "X-Client-Time"?: string;
+                /** @description Enrolled device token. Required for every staff request. */
+                "X-Device-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RequestReceiptInputRequest"];
+            };
+        };
+        responses: {
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };

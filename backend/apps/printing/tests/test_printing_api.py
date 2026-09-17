@@ -78,7 +78,9 @@ def test_receipt_payload_money_is_integer_pesewas(
     session_id = open_session(api, waiter_auth, table)
     serve_round(api, waiter_auth, kitchen_auth, session_id, [(jollof, 2), (beer, 3)])
     open_shift(api, cashier_auth)
-    assert pay(api, cashier_auth, session_id, "CASH", 19500, tendered_pesewas=20000).status_code == 201
+    assert (
+        pay(api, cashier_auth, session_id, "CASH", 19500, tendered_pesewas=20000).status_code == 201
+    )
 
     session = TableSession.objects.select_related("table", "restaurant", "opened_by").get(
         pk=session_id
@@ -311,11 +313,11 @@ def test_bridge_fetches_receipt_bytes(
     session_id = open_session(api, waiter_auth, table)
     serve_round(api, waiter_auth, kitchen_auth, session_id, [(jollof, 1)])
     open_shift(api, cashier_auth)
-    assert pay(api, cashier_auth, session_id, "CASH", 7500, tendered_pesewas=10000).status_code == 201
-
-    response = api.get(
-        f"/api/v1/print/receipts/{session_id}", **printer_headers(printer_device)
+    assert (
+        pay(api, cashier_auth, session_id, "CASH", 7500, tendered_pesewas=10000).status_code == 201
     )
+
+    response = api.get(f"/api/v1/print/receipts/{session_id}", **printer_headers(printer_device))
     assert response.status_code == 200
     text = response.content.decode("cp437", errors="replace")
     assert "SALES RECORD" in text

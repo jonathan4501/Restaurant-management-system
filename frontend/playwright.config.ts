@@ -14,7 +14,7 @@ export default defineConfig({
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: [
     {
-      command: `npx prism mock ./mock/openapi.json -p ${mockPort} --host 127.0.0.1`,
+      command: `npx prism mock ../backend/openapi.json -p ${mockPort} --host 127.0.0.1`,
       url: `http://127.0.0.1:${mockPort}/api/v1/menu`,
       reuseExistingServer: !process.env.CI,
       timeout: 180_000,
