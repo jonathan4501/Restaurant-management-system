@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import pytest
+from django.db import connection
+from django.test.utils import CaptureQueriesContext
 
 from apps.accounts.models import Staff
 from apps.core.roles import AuthorisationPurpose
@@ -264,6 +266,82 @@ def test_drawer_movement_without_a_manager_is_refused(api, restaurant, cashier_a
     )
     assert response.status_code == 403
     assert response.data["code"] == "authorisation_required"
+
+
+def test_a_cashier_cannot_count_or_raid_another_cashiers_drawer(
+    api, restaurant, cashier_auth, second_cashier_auth, manager
+):
+    """A drawer belongs to whoever opened it; otherwise one cashier's variance lands on another."""
+    _, _, _, dev = cashier_auth
+    shift_id = open_shift(api, cashier_auth, float_pesewas=20000)
+
+    closing = api.post(
+        f"/api/v1/shifts/{shift_id}/close",
+        {"declared_cash_pesewas": 20000},
+        format="json",
+        **headers(second_cashier_auth),
+    )
+    assert closing.status_code == 403, closing.data
+    assert closing.data["code"] == "role_not_allowed"
+
+    # Even with a real manager PIN, the authorisation is for a drawer this cashier does not hold.
+    movement = api.post(
+        f"/api/v1/shifts/{shift_id}/movements",
+        {
+            "kind": "PAID_OUT",
+            "amount_pesewas": 5000,
+            "authorisation": authorisation(
+                manager, dev, AuthorisationPurpose.DRAWER_MOVEMENT, "SUPPLIER_PAID"
+            ),
+        },
+        format="json",
+        **headers(second_cashier_auth),
+    )
+    assert movement.status_code == 403, movement.data
+    assert movement.data["code"] == "role_not_allowed"
+
+    assert Shift.objects.get(pk=shift_id).closed_at is None
+    assert not DrawerMovement.objects.exists()
+
+
+def test_a_manager_may_count_a_cashiers_drawer(api, restaurant, cashier_auth, manager_auth):
+    """The override the guard above exists to allow: a manager at the till can close the shift."""
+    shift_id = open_shift(api, cashier_auth, float_pesewas=20000)
+
+    closed = api.post(
+        f"/api/v1/shifts/{shift_id}/close",
+        {"declared_cash_pesewas": 20000},
+        format="json",
+        **headers(manager_auth),
+    )
+    assert closed.status_code == 200, closed.data
+    assert closed.data["expected_cash_pesewas"] == 20000
+    assert closed.data["variance_pesewas"] == 0
+    assert Shift.objects.get(pk=shift_id).closed_at is not None
+
+
+def test_taking_payment_locks_every_row_it_prices(
+    api, restaurant, table, jollof, waiter_auth, kitchen_auth, cashier_auth
+):
+    """
+    Recording a payment reads the shift, the bill and the bill's orders, then writes totals derived
+    from all three. Each of those reads must be SELECT ... FOR UPDATE, so a second till cannot price
+    the same bill from a snapshot that this handler is about to invalidate.
+    """
+    session_id = open_session(api, waiter_auth, table)
+    serve_round(api, waiter_auth, kitchen_auth, session_id, str(jollof.id))
+    open_shift(api, cashier_auth)
+
+    with CaptureQueriesContext(connection) as captured:
+        paid = pay(api, cashier_auth, session_id, PaymentMethod.CASH, 7500, tendered_pesewas=7500)
+    assert paid.status_code == 201, paid.data
+
+    locked = [q["sql"] for q in captured.captured_queries if "FOR UPDATE" in q["sql"]]
+    for db_table in ("shifts", "table_sessions", "orders"):
+        assert any(f'FROM "{db_table}"' in sql for sql in locked), (
+            f'"{db_table}" was read without a row lock while pricing a payment',
+            locked,
+        )
 
 
 def test_voiding_a_payment_reopens_the_settled_bill(

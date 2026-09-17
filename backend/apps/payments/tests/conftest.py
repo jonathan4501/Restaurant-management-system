@@ -48,6 +48,30 @@ def cashier_auth(restaurant, cashier, till_device):
 
 
 @pytest.fixture
+def second_cashier(restaurant, pin_hash) -> Staff:
+    """A colleague on the same till device: everything of hers is off-limits to the first cashier."""
+    return Staff.objects.create(full_name="Kwesi Mensah", role="CASHIER", pin_hash=pin_hash)
+
+
+@pytest.fixture
+def second_cashier_auth(restaurant, second_cashier, till_device):
+    dev, token = till_device
+    jwt = issue_staff_token(
+        staff_id=second_cashier.id, role="CASHIER", restaurant_id=restaurant.id, device_id=dev.id
+    )
+    return token, jwt, second_cashier, dev
+
+
+@pytest.fixture
+def manager_auth(restaurant, manager, till_device):
+    dev, token = till_device
+    jwt = issue_staff_token(
+        staff_id=manager.id, role="MANAGER", restaurant_id=restaurant.id, device_id=dev.id
+    )
+    return token, jwt, manager, dev
+
+
+@pytest.fixture
 def waiter_auth(restaurant, waiter, till_device):
     dev, token = till_device
     jwt = issue_staff_token(

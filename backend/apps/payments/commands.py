@@ -16,7 +16,8 @@ from django.db.models import Sum
 
 from apps.core.commands import CommandContext, CommandOutcome, EventDraft
 from apps.core.errors import ApiError, ErrorCode
-from apps.core.roles import AggregateType
+from apps.core.money import require_pesewas
+from apps.core.roles import MANAGER_ROLES, AggregateType
 from apps.core.uuid7 import is_uuid7, uuid7
 from apps.floor.models import TableSession
 from apps.orders.events import (
@@ -58,13 +59,58 @@ def _require_actor(ctx: CommandContext) -> uuid.UUID:
     return ctx.actor_id
 
 
-def open_shift_for(actor_id: uuid.UUID) -> Shift | None:
-    return Shift.objects.filter(cashier_id=actor_id, closed_at__isnull=True).first()
+def _require_authorisation(ctx: CommandContext, detail: str) -> None:
+    """
+    The view layer asks for the manager's PIN via `authorisation_purpose`. This repeats the check at
+    the command layer so a new endpoint cannot move money without one by forgetting to declare it.
+    """
+    if ctx.authorised_by is None:
+        raise ApiError(403, ErrorCode.AUTHORISATION_REQUIRED, detail)
+
+
+def _require_pesewas_field(data: dict[str, Any], field: str, *, allow_zero: bool = False) -> int:
+    """
+    Money arrives as an integer number of pesewas or not at all. `int()` would quietly turn 75.5
+    into 75 and True into 1; require_pesewas rejects both, so a rounding bug cannot reach the drawer.
+    """
+    try:
+        value = require_pesewas(data[field])
+    except KeyError as err:
+        raise ApiError(
+            400,
+            ErrorCode.VALIDATION_ERROR,
+            f"{field} is required.",
+            errors={field: ["Required."]},
+        ) from err
+    except ValueError as err:
+        raise ApiError(
+            400,
+            ErrorCode.VALIDATION_ERROR,
+            f"{field} must be an integer number of pesewas.",
+            errors={field: [str(err)]},
+        ) from err
+    if not allow_zero and value == 0:
+        raise ApiError(
+            400,
+            ErrorCode.VALIDATION_ERROR,
+            f"{field} must be greater than zero.",
+            errors={field: ["Must be greater than zero."]},
+        )
+    return value
+
+
+def open_shift_for(actor_id: uuid.UUID, *, for_update: bool = False) -> Shift | None:
+    shifts = Shift.objects.filter(cashier_id=actor_id, closed_at__isnull=True)
+    if for_update:
+        shifts = shifts.select_for_update()
+    return shifts.first()
 
 
 def require_open_shift(ctx: CommandContext) -> Shift:
     """Every payment and drawer movement belongs to a shift — that is the whole point of the shift."""
-    shift = open_shift_for(_require_actor(ctx))
+    # Locked: the shift row is read to stamp the payment and again to total the drawer at close, so a
+    # concurrent close must queue behind this payment rather than count a drawer that is still moving.
+    shift = open_shift_for(_require_actor(ctx), for_update=True)
     if shift is None:
         raise ApiError(
             403,
@@ -88,7 +134,7 @@ def normalise_reference(raw: str | None) -> str | None:
 def open_shift(ctx: CommandContext, data: dict[str, Any]) -> CommandOutcome:
     actor_id = _require_actor(ctx)
     shift_id = _require_uuid7(data["id"], "id")
-    opening_float = int(data["opening_float_pesewas"])
+    opening_float = _require_pesewas_field(data, "opening_float_pesewas", allow_zero=True)
 
     existing = open_shift_for(actor_id)
     if existing is not None:
@@ -123,6 +169,22 @@ def open_shift(ctx: CommandContext, data: dict[str, Any]) -> CommandOutcome:
     )
 
 
+def _assert_can_mutate_shift(ctx: CommandContext, shift: Shift) -> None:
+    """
+    A drawer belongs to the cashier who opened it. Only that cashier — or a manager standing over the
+    till — may count it or move cash out of it, otherwise one cashier's variance lands on another.
+    """
+    actor_id = _require_actor(ctx)
+    if ctx.actor_role in MANAGER_ROLES:
+        return
+    if actor_id != shift.cashier_id:
+        raise ApiError(
+            403,
+            ErrorCode.ROLE_NOT_ALLOWED,
+            "A cashier may only count and move cash on their own shift.",
+        )
+
+
 def _shift_for_write(ctx: CommandContext, shift_id: uuid.UUID) -> Shift:
     try:
         shift = Shift.objects.select_for_update().get(pk=shift_id)
@@ -130,6 +192,7 @@ def _shift_for_write(ctx: CommandContext, shift_id: uuid.UUID) -> Shift:
         raise ApiError(404, ErrorCode.NOT_FOUND, "Shift not found.") from err
     if shift.closed_at is not None:
         raise ApiError(409, ErrorCode.VALIDATION_ERROR, "Shift is already closed.")
+    _assert_can_mutate_shift(ctx, shift)
     return shift
 
 
@@ -162,9 +225,8 @@ def shift_totals(shift_id: uuid.UUID, opening_float_pesewas: int) -> dict[str, A
 
 
 def close_shift(ctx: CommandContext, shift_id: uuid.UUID, data: dict[str, Any]) -> CommandOutcome:
-    actor_id = _require_actor(ctx)
     shift = _shift_for_write(ctx, shift_id)
-    declared = int(data["declared_cash_pesewas"])
+    declared = _require_pesewas_field(data, "declared_cash_pesewas", allow_zero=True)
     note = data.get("note") or ""
 
     totals = shift_totals(shift.id, int(shift.opening_float_pesewas))
@@ -189,7 +251,6 @@ def close_shift(ctx: CommandContext, shift_id: uuid.UUID, data: dict[str, Any]) 
         note=note,
     ).to_payload()
 
-    del actor_id
     return CommandOutcome(
         events=[
             EventDraft(AggregateType.SHIFT, shift.id, EventType.DRAWER_COUNTED, counted),
@@ -209,17 +270,21 @@ def close_shift(ctx: CommandContext, shift_id: uuid.UUID, data: dict[str, Any]) 
 def record_drawer_movement(
     ctx: CommandContext, shift_id: uuid.UUID, data: dict[str, Any]
 ) -> CommandOutcome:
+    _require_authorisation(ctx, "Moving cash in or out of the drawer needs manager authorisation.")
     shift = _shift_for_write(ctx, shift_id)
     kind = data["kind"]
-    # A no-sale is the drawer opening with no money moving. It still leaves a trace.
-    amount = 0 if kind == DrawerMovement.Kind.NO_SALE else int(data["amount_pesewas"])
-    if kind != DrawerMovement.Kind.NO_SALE and amount <= 0:
+    if kind not in DrawerMovement.Kind.values:
         raise ApiError(
             400,
             ErrorCode.VALIDATION_ERROR,
-            "Paid in and paid out need an amount above zero.",
-            errors={"amount_pesewas": ["Must be greater than zero."]},
+            "kind must be NO_SALE, PAID_OUT or PAID_IN.",
+            errors={"kind": ["Invalid."]},
         )
+    # A no-sale is the drawer opening with no money moving. It still leaves a trace.
+    if kind == DrawerMovement.Kind.NO_SALE:
+        amount = 0
+    else:
+        amount = _require_pesewas_field(data, "amount_pesewas")
 
     movement_id = uuid7()
     payload = DrawerMovementPayload(
@@ -262,9 +327,13 @@ def _live_paid(session_id: uuid.UUID) -> int:
     )
 
 
-def _settlement_events(session: TableSession, paid: int, payments_summary: list[dict[str, Any]]):
+def _settlement_events(
+    session: TableSession,
+    paid: int,
+    payments_summary: list[dict[str, Any]],
+    served: list[Order],
+):
     """SESSION_SETTLED plus one ORDER_CLOSED per served order — the bill is done."""
-    served = list(Order.objects.filter(session_id=session.id, status=OrderStatus.SERVED))
     events = [
         EventDraft(
             AggregateType.SESSION,
@@ -304,9 +373,12 @@ def record_payment(
     if session.closed_at is not None:
         raise ApiError(409, ErrorCode.SESSION_CLOSED, "This bill is closed.")
 
-    unserved = list(
-        Order.objects.filter(session_id=session.id, status__in=UNSERVED).order_by("order_number")
+    # Locked before the bill is priced: a round cannot reach the kitchen, or be served, between the
+    # unserved check here and the settlement events built at the end of this handler.
+    orders = list(
+        Order.objects.select_for_update().filter(session_id=session.id).order_by("order_number")
     )
+    unserved = [o for o in orders if o.status in UNSERVED]
     if unserved:
         numbers = ", ".join(f"#{o.order_number}" for o in unserved if o.order_number)
         raise ApiError(
@@ -319,19 +391,19 @@ def record_payment(
     if Payment.objects.filter(pk=payment_id).exists():
         raise ApiError(409, ErrorCode.VALIDATION_ERROR, "Payment id already exists.")
 
-    amount = int(data["amount_pesewas"])
+    amount = _require_pesewas_field(data, "amount_pesewas")
     method = data["method"]
+    if method not in PaymentMethod.values:
+        raise ApiError(
+            400,
+            ErrorCode.VALIDATION_ERROR,
+            "Unknown payment method.",
+            errors={"method": ["Invalid."]},
+        )
     bill_total = int(session.bill_total_pesewas)
     already_paid = _live_paid(session.id)
     balance_before = bill_total - already_paid
 
-    if amount <= 0:
-        raise ApiError(
-            400,
-            ErrorCode.VALIDATION_ERROR,
-            "A payment must be greater than zero.",
-            errors={"amount_pesewas": ["Must be greater than zero."]},
-        )
     if amount > balance_before:
         raise ApiError(
             422,
@@ -340,12 +412,14 @@ def record_payment(
             errors={"balance_pesewas": [balance_before]},
         )
 
-    tendered = data.get("tendered_pesewas")
+    tendered: int | None = data.get("tendered_pesewas")
     change: int | None = None
     if method == PaymentMethod.CASH:
+        # An untendered cash payment is the exact amount: the cashier took the note and gave no change.
         if tendered is None:
             tendered = amount
-        tendered = int(tendered)
+        else:
+            tendered = _require_pesewas_field(data, "tendered_pesewas", allow_zero=True)
         if tendered < amount:
             raise ApiError(
                 422,
@@ -359,10 +433,7 @@ def record_payment(
 
     reference = normalise_reference(data.get("external_reference"))
     order_id = data.get("order_id")
-    if (
-        order_id is not None
-        and not Order.objects.filter(pk=order_id, session_id=session.id).exists()
-    ):
+    if order_id is not None and not any(o.id == order_id for o in orders):
         raise ApiError(404, ErrorCode.NOT_FOUND, "Order not found on this bill.")
 
     paid_after = already_paid + amount
@@ -390,7 +461,8 @@ def record_payment(
             for p in Payment.objects.filter(session_id=session.id, voided_at__isnull=True)
         ]
         summary.append({"method": str(method), "amount_pesewas": amount})
-        events += _settlement_events(session, paid_after, summary)
+        served = [o for o in orders if o.status == OrderStatus.SERVED]
+        events += _settlement_events(session, paid_after, summary, served)
 
     return CommandOutcome(
         events=events,
@@ -414,7 +486,11 @@ def record_payment(
 
 def _reopen_events(session: TableSession, note: str):
     """Undo a settlement: the bill is live again and its closed orders go back to SERVED."""
-    closed = list(Order.objects.filter(session_id=session.id, status=OrderStatus.CLOSED))
+    closed = list(
+        Order.objects.select_for_update()
+        .filter(session_id=session.id, status=OrderStatus.CLOSED)
+        .order_by("order_number")
+    )
     events = [
         EventDraft(
             AggregateType.SESSION,
@@ -444,9 +520,31 @@ def _reopen_events(session: TableSession, note: str):
     return events
 
 
+def _alert_owner_after_commit(ctx: CommandContext, session: TableSession, note: str) -> None:
+    """
+    The owner hears about a reopened bill without having to go looking for it. Queued on commit so a
+    slow mail server cannot hold the till open, and so a rolled-back reopen sends nothing.
+    """
+    from apps.accounts.models import Staff
+    from apps.payments.tasks import notify_owner_reopen
+
+    wanted = [i for i in (ctx.actor_id, ctx.authorised_by) if i is not None]
+    names = {s.id: s.full_name for s in Staff.objects.filter(id__in=wanted)}
+    payload = (
+        str(ctx.restaurant_id),
+        str(session.id),
+        session.table.number,
+        names.get(ctx.actor_id, "A staff member") if ctx.actor_id else "A staff member",
+        names.get(ctx.authorised_by, "a manager") if ctx.authorised_by else "a manager",
+        note,
+    )
+    transaction.on_commit(lambda: notify_owner_reopen.delay(*payload))
+
+
 def void_payment(
     ctx: CommandContext, payment_id: uuid.UUID, data: dict[str, Any]
 ) -> CommandOutcome:
+    _require_authorisation(ctx, "Voiding a payment needs manager authorisation.")
     try:
         payment = Payment.objects.select_for_update().get(pk=payment_id)
     except Payment.DoesNotExist as err:
@@ -475,8 +573,11 @@ def void_payment(
         )
     ]
     # Voiding money off a settled bill puts the bill back in play; the owner is told (flagged events).
-    if session.settled_at is not None and balance_after > 0:
-        events += _reopen_events(session, note or "payment voided")
+    reopened = session.settled_at is not None and balance_after > 0
+    if reopened:
+        reason = note or "payment voided"
+        events += _reopen_events(session, reason)
+        _alert_owner_after_commit(ctx, session, reason)
 
     return CommandOutcome(
         events=events,
@@ -487,32 +588,15 @@ def void_payment(
             "amount_pesewas": amount,
             "paid_pesewas": paid_after,
             "balance_pesewas": balance_after,
-            "session_reopened": session.settled_at is not None and balance_after > 0,
+            "session_reopened": reopened,
         },
     )
-
-
-def _alert_owner_after_commit(ctx: CommandContext, session: TableSession, note: str) -> None:
-    """The owner hears about a reopened bill without having to go looking for it."""
-    from apps.accounts.models import Staff
-    from apps.payments.tasks import notify_owner_reopen
-
-    wanted = [i for i in (ctx.actor_id, ctx.authorised_by) if i is not None]
-    names = {s.id: s.full_name for s in Staff.objects.filter(id__in=wanted)}
-    payload = (
-        str(ctx.restaurant_id),
-        str(session.id),
-        session.table.number,
-        names.get(ctx.actor_id, "A staff member") if ctx.actor_id else "A staff member",
-        names.get(ctx.authorised_by, "a manager") if ctx.authorised_by else "a manager",
-        note,
-    )
-    transaction.on_commit(lambda: notify_owner_reopen.delay(*payload))
 
 
 def reopen_session(
     ctx: CommandContext, session_id: uuid.UUID, data: dict[str, Any]
 ) -> CommandOutcome:
+    _require_authorisation(ctx, "Reopening a bill needs manager authorisation.")
     session = _session_for_write(session_id)
     if session.settled_at is None and session.closed_at is None:
         raise ApiError(409, ErrorCode.VALIDATION_ERROR, "This bill is already open.")
