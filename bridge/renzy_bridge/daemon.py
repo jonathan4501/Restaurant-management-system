@@ -131,8 +131,7 @@ class Bridge:
             except ApiError as err:
                 # A deterministic refusal (404 / not authorised). Retrying forever will not fix it.
                 log.error("dropping %s: %s", job.description or job.job_key, err)
-                self.store.record_failure(job.job_key, str(err))
-                self.store.mark_printed(job.job_key)
+                self.store.abandon(job.job_key, str(err))
                 return False
             except ApiUnavailable as err:
                 log.warning("cannot fetch %s yet: %s", job.description or job.job_key, err)

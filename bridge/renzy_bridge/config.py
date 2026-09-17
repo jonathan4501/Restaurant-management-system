@@ -50,7 +50,6 @@ class Config:
     reconnect_max_seconds: float = 30.0
     printer_timeout_seconds: float = 5.0
     healthcheck_seconds: float = 60.0
-    retry_seconds: float = 15.0
 
     def printer_for_station(self, station: str | None) -> str:
         """The printer name for a prep station, falling back to the kitchen printer."""
@@ -77,11 +76,11 @@ def _printers_from(raw: dict[str, Any]) -> dict[str, Printer]:
             host, _, port = value.partition(":")
             printers[name] = Printer(name, host, int(port) if port else DEFAULT_PRINTER_PORT)
         elif isinstance(value, dict):
-            host = value.get("host")
-            if not host:
+            table_host = value.get("host")
+            if not table_host:
                 raise ConfigError(f"printer '{name}' has no host")
             printers[name] = Printer(
-                name, str(host), int(value.get("port", DEFAULT_PRINTER_PORT))
+                name, str(table_host), int(value.get("port", DEFAULT_PRINTER_PORT))
             )
         else:
             raise ConfigError(f"printer '{name}' must be a string 'host:port' or a table")
@@ -137,5 +136,4 @@ def from_dict(raw: dict[str, Any], *, config_path: Path | None = None) -> Config
         reconnect_max_seconds=float(bridge.get("reconnect_max_seconds", 30.0)),
         printer_timeout_seconds=float(bridge.get("printer_timeout_seconds", 5.0)),
         healthcheck_seconds=float(bridge.get("healthcheck_seconds", 60.0)),
-        retry_seconds=float(bridge.get("retry_seconds", 15.0)),
     )

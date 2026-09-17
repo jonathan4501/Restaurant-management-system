@@ -13,6 +13,7 @@ dev = [
     "pytest>=8.3",
     "ruff>=0.9",
     "black>=25.1",
+    "mypy>=1.14",
 ]
 
 [project.optional-dependencies]
@@ -44,6 +45,26 @@ ignore = ["E501"]
 [tool.ruff.lint.per-file-ignores]
 # --selftest reports to the operator on stdout; that is its whole job.
 "renzy_bridge/__main__.py" = ["T20"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["renzy_bridge"]
+
+[tool.mypy]
+python_version = "3.12"
+warn_unused_ignores = true
+warn_redundant_casts = true
+no_implicit_optional = true
+# The whole package is small, pure Python and already annotated. There is no legacy corner to
+# exempt, so the strict settings apply to all of it rather than to a named allow-list.
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+disallow_untyped_calls = true
+warn_return_any = true
+strict_equality = true
+
+[[tool.mypy.overrides]]
+module = ["sentry_sdk.*"]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

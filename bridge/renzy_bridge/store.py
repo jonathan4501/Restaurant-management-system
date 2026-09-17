@@ -166,6 +166,20 @@ class Store:
             (_now(), job_key),
         )
 
+    def abandon(self, job_key: str, error: str) -> None:
+        """
+        Stop owing a job the server will never serve — a 404, or a device no longer enrolled.
+
+        It leaves the queue like a printed job, but the reason stays on the row: whoever asks why a
+        ticket never came out needs to find it there. `mark_printed` clears `last_error` on purpose,
+        so recording the reason and then marking printed would wipe it.
+        """
+        self._conn.execute(
+            "UPDATE jobs SET printed_at = ?, attempts = attempts + 1, last_error = ?"
+            " WHERE job_key = ?",
+            (_now(), error[:500], job_key),
+        )
+
     def record_failure(self, job_key: str, error: str) -> None:
         self._conn.execute(
             "UPDATE jobs SET attempts = attempts + 1, last_error = ? WHERE job_key = ?",

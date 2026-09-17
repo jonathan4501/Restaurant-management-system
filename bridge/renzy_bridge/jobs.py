@@ -78,6 +78,7 @@ def _ticket_jobs(envelope: dict[str, Any], config: Config, event_id: str) -> lis
     number = payload.get("order_number", "?")
     table = payload.get("table_number", "?")
 
+    targets: list[tuple[str, str | None]]
     if config.station_printers:
         targets = [(config.printer_for_station(s), s) for s in _stations(envelope)]
     else:
