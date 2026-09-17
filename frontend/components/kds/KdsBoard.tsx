@@ -275,7 +275,7 @@ export function KdsBoard() {
           <section
             key={column.key}
             data-testid={`column-${column.key}`}
-            className="flex min-h-0 flex-col rounded-xl bg-[var(--surface-2)]"
+            className="flex min-h-0 flex-col rounded-lg bg-[var(--surface-2)]"
           >
             <h2 className="flex items-baseline justify-between border-b border-[var(--line)] px-4 py-2 text-lg font-bold uppercase tracking-wide">
               {column.label}

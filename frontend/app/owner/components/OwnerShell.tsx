@@ -16,7 +16,7 @@ export function OwnerShell({ name, title, onLogout, children }: Props) {
     <main className="staff-shell staff-theme min-h-screen px-4 py-4 sm:px-6">
       <header className="mb-5 flex flex-wrap items-center justify-between gap-3 border-b border-[var(--line)] pb-4">
         <div>
-          <p className="text-xs uppercase tracking-wide text-[var(--ink-3)]">RENZY · Owner</p>
+          <p className="wordmark text-xl">RENZY · Owner</p>
           <h1 className="text-xl font-semibold sm:text-2xl">{title}</h1>
           <p className="text-sm text-[var(--ink-3)]">{name}</p>
         </div>

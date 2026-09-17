@@ -30,7 +30,7 @@ export function MenuBrowser({ categories, onSelectItem, guestSurface }: MenuBrow
             aria-selected={cat.id === active?.id}
             data-testid={`menu-tab-${cat.name.toLowerCase().replace(/\s+/g, "-")}`}
             onClick={() => setActiveId(cat.id)}
-            className={`min-h-11 shrink-0 rounded-full px-4 text-sm font-semibold ${
+            className={`min-h-14 shrink-0 rounded-full px-4 text-sm font-semibold ${
               cat.id === active?.id
                 ? "bg-[var(--accent)] text-[var(--accent-ink)]"
                 : "border border-[var(--line)] bg-[var(--surface-2)] text-[var(--ink-2)]"
@@ -58,7 +58,7 @@ export function MenuBrowser({ categories, onSelectItem, guestSurface }: MenuBrow
               }`}
             >
               <span className="line-clamp-2 text-sm font-semibold">{item.name}</span>
-              <span className="num mt-auto text-sm text-[var(--ink-3)]">{formatPesewas(item.price_pesewas)}</span>
+              <span className="num mt-auto text-sm text-[var(--brass)]">{formatPesewas(item.price_pesewas)}</span>
               {unavailable ? <span className="text-xs font-semibold uppercase text-[var(--danger)]">86&apos;d</span> : null}
             </button>
           );

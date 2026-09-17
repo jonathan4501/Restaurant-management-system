@@ -42,7 +42,7 @@ export function OwnerLogin({ onAuthenticated }: Props) {
       <div className="w-full max-w-sm">
         <div className="mb-6 flex items-start justify-between gap-3">
           <div>
-            <p className="text-xs uppercase tracking-wide text-[var(--ink-3)]">RENZY</p>
+            <p className="wordmark text-xl">RENZY</p>
             <h1 className="text-2xl font-semibold">Owner</h1>
             <p className="mt-1 text-sm text-[var(--ink-3)]">
               {step === "password" ? "Email and password, then your authenticator code." : "Enter the 6-digit code from your authenticator."}

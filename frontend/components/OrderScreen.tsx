@@ -151,7 +151,7 @@ export function OrderScreen() {
     <div className={themeClass} data-testid="order-screen" data-mode={mode}>
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--line)] px-4 py-3">
         <div>
-          <p className="text-xs uppercase tracking-wide text-[var(--ink-3)]">RENZY</p>
+          <p className="wordmark text-xl">RENZY</p>
           <h1 className="text-lg font-semibold">{isGuestSurface ? t("seeMenu") : "Order"}</h1>
         </div>
         <div className="flex items-center gap-3">
@@ -160,7 +160,7 @@ export function OrderScreen() {
               type="button"
               data-testid="locale-toggle"
               onClick={() => setLocale(locale === "en" ? "tw" : "en")}
-              className="min-h-11 rounded-lg border border-[var(--line)] px-3 text-sm"
+              className="min-h-12 rounded-lg border border-[var(--line)] px-3 text-sm"
             >
               {t("language")}
             </button>
@@ -203,7 +203,7 @@ export function OrderScreen() {
                       Table {draft.tableNumber}
                     </p>
                     {canSeeTables ? (
-                      <button type="button" className="min-h-11 text-sm text-[var(--accent)]" onClick={() => draft.reset()}>
+                      <button type="button" className="min-h-14 text-sm text-[var(--accent)]" onClick={() => draft.reset()}>
                         Change table
                       </button>
                     ) : null}

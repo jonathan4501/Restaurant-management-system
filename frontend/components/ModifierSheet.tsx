@@ -60,9 +60,9 @@ export function ModifierSheet({ item, open, onClose, onAdd, guestSurface }: Modi
           <div className="flex items-start justify-between gap-3">
             <div>
               <h2 className="text-lg font-semibold">{item.name}</h2>
-              <p className="num text-sm text-[var(--ink-3)]">{formatPesewas(item.price_pesewas)}</p>
+              <p className="num text-sm text-[var(--brass)]">{formatPesewas(item.price_pesewas)}</p>
             </div>
-            <button type="button" onClick={onClose} className="min-h-11 px-3 text-sm">
+            <button type="button" onClick={onClose} className="min-h-14 px-4 text-sm">
               {t("cancel")}
             </button>
           </div>
@@ -117,11 +117,11 @@ export function ModifierSheet({ item, open, onClose, onAdd, guestSurface }: Modi
           <div className="flex items-center justify-between">
             <span className="text-sm font-semibold">Quantity</span>
             <div className="flex items-center gap-2">
-              <button type="button" data-testid="modifier-qty-minus" className="min-h-11 min-w-11 rounded-lg border" onClick={() => setQuantity((q) => Math.max(1, q - 1))}>
+              <button type="button" data-testid="modifier-qty-minus" className="min-h-14 min-w-14 rounded-lg border" onClick={() => setQuantity((q) => Math.max(1, q - 1))}>
                 −
               </button>
               <span className="num min-w-8 text-center">{quantity}</span>
-              <button type="button" data-testid="modifier-qty-plus" className="min-h-11 min-w-11 rounded-lg border" onClick={() => setQuantity((q) => q + 1)}>
+              <button type="button" data-testid="modifier-qty-plus" className="min-h-14 min-w-14 rounded-lg border" onClick={() => setQuantity((q) => q + 1)}>
                 +
               </button>
             </div>
