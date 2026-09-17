@@ -1,7 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
 const mockPort = Number(process.env.MOCK_PORT ?? 4012);
-const appPort = 3000;
+const appPort = Number(process.env.APP_PORT ?? 3000);
 
 export default defineConfig({
   testDir: "./e2e",
@@ -24,7 +24,10 @@ export default defineConfig({
       url: `http://127.0.0.1:${appPort}`,
       reuseExistingServer: !process.env.CI,
       timeout: 180_000,
-      env: { NEXT_PUBLIC_API_URL: `http://127.0.0.1:${mockPort}` },
+      env: {
+        NEXT_PUBLIC_API_URL: `http://127.0.0.1:${mockPort}`,
+        PORT: String(appPort),
+      },
     },
   ],
 });

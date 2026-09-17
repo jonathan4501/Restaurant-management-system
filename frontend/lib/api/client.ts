@@ -52,7 +52,15 @@ const headers: Middleware = {
 
 const outboxFetch = createOutboxFetch({ baseUrl: API_BASE_URL });
 
-export const api = createClient<paths>({ baseUrl: API_BASE_URL, fetch: outboxFetch });
+/**
+ * Outbox fetch for POSTs (WS11). `credentials: "include"` so owner Django session cookies
+ * travel on GETs (WS10 reporting). Owner login/totp use a separate credentials fetch.
+ */
+export const api = createClient<paths>({
+  baseUrl: API_BASE_URL,
+  fetch: outboxFetch,
+  credentials: "include",
+});
 api.use(headers);
 
 /** Generate the key up front when a command will be queued or retried (outbox, double-tap guard). */
