@@ -13,6 +13,7 @@ import { api } from "@/lib/api/client";
 import { sortTables, type DraftModifier, type MenuItem, type MenuResponse, type TableRow } from "@/lib/domain";
 import { useOrderMode } from "@/lib/hooks/useOrderMode";
 import { useI18n } from "@/lib/i18n";
+import { isQueued } from "@/lib/outbox";
 import { useDraft } from "@/lib/stores/draft";
 import { useStaff } from "@/lib/stores/staff";
 
@@ -76,23 +77,26 @@ export function OrderScreen() {
     },
   });
 
-  const ensureOrder = useCallback(async () => {
-    if (draft.orderId) return draft.orderId;
+  const ensureOrder = useCallback(async (): Promise<{ orderId: string; queued: boolean }> => {
+    if (draft.orderId) return { orderId: draft.orderId, queued: false };
     const orderId = uuidv7();
     const body = { id: orderId, session_id: draft.sessionId! };
-    const { data, error } = guest
+    const { data, error, response } = guest
       ? await api.POST("/api/v1/guest/orders", { body })
       : await api.POST("/api/v1/orders", { body });
     if (error) throw error;
     const id = (data as unknown as { id?: string } | undefined)?.id ?? orderId;
     draft.setOrderId(id);
-    return id;
+    return { orderId: id, queued: isQueued(response) };
   }, [draft, guest]);
 
   const sendMutation = useMutation({
     mutationFn: async () => {
       draft.setSubmitPending(true);
-      const orderId = await ensureOrder();
+      let queued = false;
+      const ensured = await ensureOrder();
+      queued = queued || ensured.queued;
+      const orderId = ensured.orderId;
       for (const line of draft.lines) {
         const request = {
           params: { path: { order_id: orderId } },
@@ -105,22 +109,25 @@ export function OrderScreen() {
             course: 1,
           },
         };
-        const { error } = guest
+        const { error, response } = guest
           ? await api.POST("/api/v1/guest/orders/{order_id}/items", request)
           : await api.POST("/api/v1/orders/{order_id}/items", request);
         if (error) throw error;
+        queued = queued || isQueued(response);
       }
       const submit = { params: { path: { order_id: orderId } } };
-      const { error: submitError } = guest
+      const { error: submitError, response: submitResponse } = guest
         ? await api.POST("/api/v1/guest/orders/{order_id}/submit", submit)
         : await api.POST("/api/v1/orders/{order_id}/submit", submit);
       if (submitError) throw submitError;
-      return orderId;
+      queued = queued || isQueued(submitResponse);
+      return { orderId, queued };
     },
-    onSuccess: () => {
+    onSuccess: ({ queued }) => {
       draft.clearLines();
       draft.setSubmitPending(false);
-      setSent(true);
+      // Never claim the kitchen has the ticket while it is still on this device.
+      if (!queued) setSent(true);
     },
     onError: () => {
       draft.setSubmitPending(false);
@@ -183,7 +190,7 @@ export function OrderScreen() {
             {showTables ? (
               <section>
                 <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-[var(--ink-3)]">Tables</h2>
-                {tablesQuery.isLoading ? <p className="text-sm">Loading tablesâ€¦</p> : null}
+                {tablesQuery.isLoading ? <p className="text-sm">Loading tables…</p> : null}
                 {tablesQuery.data ? (
                   <TableGrid tables={tablesQuery.data} selectedId={draft.tableId} onSelect={handleSelectTable} />
                 ) : null}
@@ -202,7 +209,7 @@ export function OrderScreen() {
                     ) : null}
                   </div>
                 ) : null}
-                {menuQuery.isLoading ? <p className="text-sm">Loading menuâ€¦</p> : null}
+                {menuQuery.isLoading ? <p className="text-sm">Loading menu…</p> : null}
                 {menuQuery.data ? (
                   <MenuBrowser categories={menuQuery.data.categories} onSelectItem={setPickerItem} guestSurface={isGuestSurface} />
                 ) : null}
@@ -214,7 +221,7 @@ export function OrderScreen() {
               tableNumber={draft.tableNumber}
               lines={draft.lines}
               totalPesewas={draft.totalPesewas()}
-              submitPending={draft.submitPending}
+              submitPending={draft.submitPending || sendMutation.isPending}
               onQuantityChange={draft.setQuantity}
               onSend={() => void sendMutation.mutate()}
               guestSurface={isGuestSurface}

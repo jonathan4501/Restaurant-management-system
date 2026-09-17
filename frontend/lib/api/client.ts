@@ -3,14 +3,15 @@
  * (`npm run types`). Never hand-write request or response types.
  *
  * Every request carries the device token and the session token. Every POST carries a fresh
- * Idempotency-Key (UUIDv7) and X-Client-Time. WS11 routes POSTs through the IndexedDB outbox;
- * until then this client talks to the network directly.
+ * Idempotency-Key (UUIDv7) and X-Client-Time. POSTs go through the IndexedDB outbox (WS11) so a
+ * 30-minute WAN cut still delivers each command exactly once on reconnect.
  */
 
 import createClient, { type Middleware } from "openapi-fetch";
 import { v7 as uuidv7 } from "uuid";
 
 import { tokens } from "@/lib/auth/tokens";
+import { createOutboxFetch } from "@/lib/outbox";
 
 import type { paths } from "./schema";
 
@@ -39,6 +40,8 @@ const headers: Middleware = {
     const session = tokens.session();
     if (device) request.headers.set("X-Device-Token", device);
     if (session) request.headers.set("Authorization", `Bearer ${session}`);
+    // Prism (and most JSON APIs) need an explicit Accept; */* yields an empty 200 from the mock.
+    if (!request.headers.has("Accept")) request.headers.set("Accept", "application/json");
     if (request.method === "POST") {
       if (!request.headers.has(IDEMPOTENCY_HEADER)) request.headers.set(IDEMPOTENCY_HEADER, uuidv7());
       request.headers.set("X-Client-Time", new Date().toISOString());
@@ -47,7 +50,9 @@ const headers: Middleware = {
   },
 };
 
-export const api = createClient<paths>({ baseUrl: API_BASE_URL });
+const outboxFetch = createOutboxFetch({ baseUrl: API_BASE_URL });
+
+export const api = createClient<paths>({ baseUrl: API_BASE_URL, fetch: outboxFetch });
 api.use(headers);
 
 /** Generate the key up front when a command will be queued or retried (outbox, double-tap guard). */

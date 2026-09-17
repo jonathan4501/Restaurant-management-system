@@ -25,10 +25,29 @@ export interface OutboxEntry {
   lastError: string | null;
   /** HTTP status of the terminal failure (4xx other than 409/429), if any. */
   failedStatus: number | null;
+  /**
+   * The request headers captured at enqueue and replayed verbatim: Idempotency-Key, X-Client-Time
+   * and the device/session tokens of whoever actually pressed the button. Re-reading the tokens at
+   * send time would attribute a queued order to whoever happens to be signed in 30 minutes later.
+   */
+  headers: Record<string, string>;
+  /** Consecutive 409/429 responses. The server is alive and saying no; retrying forever will not help. */
+  conflicts: number;
 }
 
 export interface OutboxSnapshot {
   queued: number;
   failed: number;
   online: boolean;
+}
+
+/** What `outboxFetch` hands to the store: a command that has not been given a seq yet. */
+export interface OutboxCommand {
+  /** The entity id from the body when the command carries one, else the Idempotency-Key. */
+  id: string;
+  path: string;
+  body: unknown;
+  idempotencyKey: string;
+  clientTime: string;
+  headers: Record<string, string>;
 }

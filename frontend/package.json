@@ -22,12 +22,13 @@
     "openapi-fetch": "^0.14.0",
     "react": "19.1.0",
     "react-dom": "19.1.0",
-    "uuid": "^11.1.0",
+    "uuid": "^11.1.1",
     "zustand": "^5.0.8"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@playwright/test": "^1.55.0",
+    "@serwist/next": "^9.5.12",
     "@stoplight/prism-cli": "^5.14.2",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
@@ -35,7 +36,9 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "15.5.25",
+    "fake-indexeddb": "^6.2.5",
     "openapi-typescript": "^7.9.0",
+    "serwist": "^9.5.12",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^3.2.4"
