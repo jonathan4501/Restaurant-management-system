@@ -182,6 +182,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/events/log": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description The full event stream for the restaurant. `flagged` is derived from the event type (and, for voids, whether the kitchen had acknowledged) — never stored. */
+        get: operations["events_log"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/guest/menu": {
         parameters: {
             query?: never;
@@ -718,6 +735,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/reports/patterns": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Money taken by hour, payment method mix, best sellers by value (from line snapshots), and average acknowledged→ready time per station. */
+        get: operations["reports_patterns"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports/today": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Money taken so far (gross cash through the till), covers, average bill, and open bills. Computed live — today is not rolled up until after cutover. */
+        get: operations["reports_today"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/reports/variance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Voids after the kitchen acknowledged, discounts and comps by staff, reopened bills, cash variance by shift, and gaps in the ticket-number sequence. */
+        get: operations["reports_variance"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sessions": {
         parameters: {
             query?: never;
@@ -961,6 +1029,13 @@ export interface components {
              */
             purpose: "VOID_AFTER_ACK" | "DISCOUNT" | "COMP" | "PRICE_OVERRIDE" | "REOPEN" | "DRAWER_MOVEMENT" | "PAYMENT_VOID" | "PRICE_CHANGE_IN_SERVICE";
         };
+        BestSeller: {
+            /** @description The name snapshotted onto the line when it was ordered. */
+            name: string;
+            quantity: number;
+            /** @description Σ line totals. Integer pesewas. */
+            value_pesewas: number;
+        };
         CloseShiftInputRequest: {
             declared_cash_pesewas: number;
             /** @default  */
@@ -983,6 +1058,19 @@ export interface components {
             /** @default  */
             note: string;
         };
+        DiscountsByStaff: {
+            staff: string;
+            /** Format: uuid */
+            staff_id: string | null;
+            discount_count: number;
+            /** @description Integer pesewas. */
+            discount_pesewas: number;
+            comp_count: number;
+            /** @description Integer pesewas. */
+            comp_pesewas: number;
+            /** @description Discounts and comps together. Integer pesewas. */
+            value_pesewas: number;
+        };
         DrawerMovementInputRequest: {
             /**
              * @description * `NO_SALE` - No Sale
@@ -1000,6 +1088,39 @@ export interface components {
         EnrolDeviceInputRequest: {
             enrolment_code: string;
         };
+        EventLog: {
+            events: components["schemas"]["EventLogRow"][];
+            /** @description Pass as `cursor` for the next page. Null on the last page. */
+            next_cursor: number | null;
+            has_more: boolean;
+        };
+        EventLogRow: {
+            /** @description Per restaurant, gapless. Cursor for the next page. */
+            seq: number;
+            type: string;
+            aggregate_type: string;
+            /** Format: uuid */
+            aggregate_id: string;
+            /** Format: uuid */
+            order_id: string | null;
+            /** Format: uuid */
+            actor_id: string | null;
+            actor: string | null;
+            actor_role: string;
+            /** @description The manager who authorised the override, where there was one. */
+            authorised_by: string | null;
+            reason_code: string | null;
+            /** @description Rendered distinctly in the owner's log. Derived from the event type, never stored; a void counts only once the kitchen has acknowledged the order. */
+            flagged: boolean;
+            /**
+             * Format: date-time
+             * @description Server time. Authoritative.
+             */
+            created_at: string;
+            payload: {
+                [key: string]: unknown;
+            };
+        };
         GuestTokenInputRequest: {
             /**
              * @description * `guest` - guest
@@ -1007,6 +1128,12 @@ export interface components {
              * @enum {string}
              */
             mode: "guest";
+        };
+        HourlyMoney: {
+            /** @description Hour 0–23 in the restaurant's own timezone. */
+            hour: number;
+            /** @description Money taken (gross cash through the till). Integer pesewas. Not revenue, not profit. */
+            money_taken_pesewas: number;
         };
         ModifyItemInputRequest: {
             quantity?: number;
@@ -1031,6 +1158,27 @@ export interface components {
             /** Format: uuid */
             id: string;
             opening_float_pesewas: number;
+        };
+        OrderNumberGap: {
+            /** Format: date */
+            business_date: string;
+            /** @description Ticket numbers that were issued but are not in the projections. */
+            missing: number[];
+        };
+        Patterns: {
+            /** Format: date */
+            date_from: string;
+            /** Format: date */
+            date_to: string;
+            /** @description Money taken (gross cash through the till). Integer pesewas. Not revenue, not profit. */
+            money_taken_pesewas: number;
+            money_taken_by_hour: components["schemas"]["HourlyMoney"][];
+            /** @description Payment method → money taken. Integer pesewas. */
+            payment_method_mix: {
+                [key: string]: number;
+            };
+            best_sellers_by_value: components["schemas"]["BestSeller"][];
+            station_timing: components["schemas"]["StationTiming"][];
         };
         PinLoginInputRequest: {
             /** Format: uuid */
@@ -1070,12 +1218,114 @@ export interface components {
             /** @default  */
             note: string;
         };
+        ReopenedBill: {
+            /** Format: uuid */
+            session_id: string;
+            table_number: string | null;
+            /**
+             * @description MANAGER: someone reopened the bill on purpose. PAYMENT_VOID: voiding a payment took a settled bill back below its total.
+             *
+             *     * `MANAGER` - MANAGER
+             *     * `PAYMENT_VOID` - PAYMENT_VOID
+             * @enum {string}
+             */
+            trigger: "MANAGER" | "PAYMENT_VOID";
+            orders_reopened: number;
+            reason_code: string | null;
+            actor: string | null;
+            authorised_by: string | null;
+            /** Format: date-time */
+            at: string;
+        };
         RequestReceiptInputRequest: {
             /**
              * Format: uuid
              * @description The bill to print a sales record for.
              */
             session_id: string;
+        };
+        ShiftVariance: {
+            /** Format: uuid */
+            shift_id: string;
+            cashier: string;
+            /** Format: uuid */
+            cashier_id: string;
+            /** Format: date-time */
+            opened_at: string;
+            /** Format: date-time */
+            closed_at: string | null;
+            /** @description Integer pesewas. */
+            expected_cash_pesewas: number | null;
+            /** @description What the cashier counted. Integer pesewas. */
+            declared_cash_pesewas: number | null;
+            /** @description Declared − expected. Negative is a short count. Integer pesewas. */
+            variance_pesewas: number | null;
+        };
+        StationTiming: {
+            station: string;
+            /** @description Acknowledged → ready, mean over the window. */
+            average_seconds: number;
+            lines: number;
+        };
+        /** @description The service so far, live from the projections. Today is not rolled up until after cutover. */
+        Today: {
+            /** Format: date */
+            business_date: string;
+            /** @description Money taken (gross cash through the till). Integer pesewas. Not revenue, not profit. */
+            money_taken_pesewas: number;
+            /** @description Σ party size of the bills settled today. */
+            covers: number;
+            bills_settled: number;
+            /** @description Money taken ÷ bills settled, integer pesewas, floored. Never a float. */
+            average_bill_pesewas: number;
+            /** @description Bills still owing money right now. */
+            open_bills: number;
+            /** @description Still to be collected on open bills. Integer pesewas. */
+            open_balance_pesewas: number;
+            orders_closed: number;
+        };
+        /** @description Every way money can leave without a sale behind it. */
+        Variance: {
+            /** Format: date */
+            date_from: string;
+            /** Format: date */
+            date_to: string;
+            voids_after_acknowledgement: components["schemas"]["VoidAfterAck"][];
+            /** @description Food that was cooked and thrown away. Integer pesewas. */
+            void_value_pesewas: number;
+            discounts_by_staff: components["schemas"]["DiscountsByStaff"][];
+            /** @description Integer pesewas. */
+            discount_pesewas: number;
+            /** @description Integer pesewas. */
+            comp_pesewas: number;
+            reopened_bills: components["schemas"]["ReopenedBill"][];
+            reopened_count: number;
+            /** @description Of those, the ones a manager reopened deliberately. */
+            manager_reopens: number;
+            cash_variance_by_shift: components["schemas"]["ShiftVariance"][];
+            /** @description Integer pesewas. */
+            cash_variance_pesewas: number;
+            order_number_gaps: components["schemas"]["OrderNumberGap"][];
+        };
+        VoidAfterAck: {
+            /** Format: uuid */
+            order_id: string | null;
+            order_number: number | null;
+            table_number: string | null;
+            /** @description Order total when the void was authorised. Integer pesewas. */
+            value_pesewas: number;
+            status_at_void: string | null;
+            reason_code: string | null;
+            /** @description Who voided it. */
+            actor: string | null;
+            actor_role: string | null;
+            /** @description The manager whose PIN allowed it. */
+            authorised_by: string | null;
+            /**
+             * Format: date-time
+             * @description Server time.
+             */
+            at: string;
         };
         VoidInputRequest: {
             reason_code: string;
@@ -1349,6 +1599,43 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+        };
+    };
+    events_log: {
+        parameters: {
+            query?: {
+                actor_id?: string;
+                aggregate_type?: string;
+                /** @description `next_cursor` from the previous page. Pages run newest first. */
+                cursor?: number;
+                /** @description Only the actions the owner is asked to look at. */
+                flagged?: boolean;
+                /** @description Server time, inclusive (ISO 8601). */
+                from?: string;
+                /** @description Rows per page (1–200, default 100). */
+                limit?: number;
+                /** @description Server time, exclusive (ISO 8601). */
+                to?: string;
+                /** @description One event type. */
+                type?: string;
+            };
+            header?: {
+                /** @description Enrolled device token. Required for every staff request. */
+                "X-Device-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EventLog"];
                 };
             };
         };
@@ -2256,6 +2543,82 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     };
+                };
+            };
+        };
+    };
+    reports_patterns: {
+        parameters: {
+            query?: {
+                /** @description First business date, YYYY-MM-DD. Default: six dates before `to`. */
+                from?: string;
+                /** @description Last business date, YYYY-MM-DD. Default: the current business date. */
+                to?: string;
+            };
+            header?: {
+                /** @description Enrolled device token. Required for every staff request. */
+                "X-Device-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Patterns"];
+                };
+            };
+        };
+    };
+    reports_today: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description Enrolled device token. Required for every staff request. */
+                "X-Device-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Today"];
+                };
+            };
+        };
+    };
+    reports_variance: {
+        parameters: {
+            query?: {
+                /** @description First business date, YYYY-MM-DD. Default: six dates before `to`. */
+                from?: string;
+                /** @description Last business date, YYYY-MM-DD. Default: the current business date. */
+                to?: string;
+            };
+            header?: {
+                /** @description Enrolled device token. Required for every staff request. */
+                "X-Device-Token"?: string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Variance"];
                 };
             };
         };
