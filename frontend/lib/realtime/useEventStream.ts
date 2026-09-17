@@ -33,6 +33,8 @@ interface Options {
   onEvent?: (envelope: EventEnvelope) => void;
   /** RESYNC: the client missed too much to replay. Refetch everything on screen. */
   onResync?: () => void;
+  /** Override the default “clear staff token → /login” (owner uses a session cookie). */
+  onSignedOut?: () => void;
   enabled?: boolean;
 }
 
@@ -53,7 +55,12 @@ function authHeaders(): Record<string, string> {
   return headers;
 }
 
-export function useEventStream({ onEvent, onResync, enabled = true }: Options = {}): StreamStatus {
+export function useEventStream({
+  onEvent,
+  onResync,
+  onSignedOut,
+  enabled = true,
+}: Options = {}): StreamStatus {
   const queryClient = useQueryClient();
   const router = useRouter();
   const [state, setState] = useState<ConnectionState>("connecting");
@@ -62,8 +69,8 @@ export function useEventStream({ onEvent, onResync, enabled = true }: Options = 
   const lastSeq = useRef(0);
   const failures = useRef(0);
   const lastContact = useRef(Date.now());
-  const handlers = useRef({ onEvent, onResync });
-  handlers.current = { onEvent, onResync };
+  const handlers = useRef({ onEvent, onResync, onSignedOut });
+  handlers.current = { onEvent, onResync, onSignedOut };
 
   const deliver = useCallback(
     (envelopes: EventEnvelope[]) => {
@@ -82,6 +89,10 @@ export function useEventStream({ onEvent, onResync, enabled = true }: Options = 
 
   const signedOut = useCallback(() => {
     setState("signed-out");
+    if (handlers.current.onSignedOut) {
+      handlers.current.onSignedOut();
+      return;
+    }
     tokens.setSession(null);
     router.replace("/login");
   }, [router]);
@@ -113,7 +124,7 @@ export function useEventStream({ onEvent, onResync, enabled = true }: Options = 
       try {
         const response = await fetch(
           `${API_BASE_URL}/api/v1/events?since=${lastSeq.current}&limit=200`,
-          { headers: authHeaders(), cache: "no-store" },
+          { headers: authHeaders(), cache: "no-store", credentials: "include" },
         );
         if (response.status === 401 || response.status === 403) return signedOut();
         if (!response.ok) throw new Error(`events ${response.status}`);
@@ -162,6 +173,7 @@ export function useEventStream({ onEvent, onResync, enabled = true }: Options = 
           },
           signal: controller.signal,
           cache: "no-store",
+          credentials: "include",
         });
         if (response.status === 401 || response.status === 403) {
           clearInterval(silence);
