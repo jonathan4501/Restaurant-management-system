@@ -259,8 +259,8 @@ def test_amount_formats_integer_pesewas(pesewas: int, expected: str) -> None:
 
 
 def test_amount_never_sees_a_float() -> None:
-    """A float that reached here would round silently; int() makes the bug loud instead."""
-    assert amount(int(7500)) == "75.00"
+    """Money reaches printing as int pesewas (CLAUDE.md invariant 1); floats round silently."""
+    assert amount(7500) == "75.00"
 
 
 @pytest.mark.parametrize(

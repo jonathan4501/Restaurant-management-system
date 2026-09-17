@@ -91,7 +91,9 @@ def _problem(status: int, code: str, detail: str) -> HttpResponse:
     )
 
 
-def _printer_or_problem(request: HttpRequest) -> tuple[PrinterPrincipal | None, HttpResponse | None]:
+def _printer_or_problem(
+    request: HttpRequest,
+) -> tuple[PrinterPrincipal | None, HttpResponse | None]:
     try:
         return resolve_printer(request), None
     except AuthError as err:

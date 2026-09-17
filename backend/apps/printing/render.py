@@ -128,7 +128,11 @@ def render_kitchen_ticket(
 
     printer.set(align="left", bold=False)
     printer.textln(_rule("="))
-    printer.textln(_row(f"Table {payload.get('table_number', '?')}", _local_time(envelope.get("created_at"), tz)))
+    printer.textln(
+        _row(
+            f"Table {payload.get('table_number', '?')}", _local_time(envelope.get("created_at"), tz)
+        )
+    )
     origin = str(payload.get("origin") or "").strip()
     if origin and origin != "WAITER":
         printer.textln(f"Ordered: {origin.replace('_', ' ').title()}")
@@ -187,7 +191,12 @@ def render_receipt(bill: dict[str, Any], *, tz: str = DEFAULT_TZ) -> bytes:
 
     printer.set(align="left")
     printer.textln(_rule("="))
-    printer.textln(_row(f"Table {bill.get('table_number', '?')}", _local_datetime(bill.get("settled_at") or bill.get("printed_at"), tz)))
+    printer.textln(
+        _row(
+            f"Table {bill.get('table_number', '?')}",
+            _local_datetime(bill.get("settled_at") or bill.get("printed_at"), tz),
+        )
+    )
     printer.textln(f"Bill: {str(bill.get('session_id', ''))[:8]}")
     served_by = str(bill.get("served_by") or "").strip()
     if served_by:
