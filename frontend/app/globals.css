@@ -1,12 +1,41 @@
 @import "tailwindcss";
 
+/* Palette from docs/06-design-prompts.md — spec wins on conflict. */
 :root {
-  --ground: #0c1412; --surface: #141e1b; --surface-2: #1b2723; --surface-3: #25332e;
-  --line: #2c3a35; --ink: #e8efec; --ink-2: #afc0ba; --ink-3: #7e918b;
-  --accent: #4fbfa8; --accent-ink: #06211c; --accent-soft: #16332d; --accent-line: #2a5d53;
-  --warn: #e0a356; --danger: #ec8b84; --queue: #8fb0d4; --queue-line: #2e4560;
-  --guest-ground: #eaeeec; --guest-surface: #ffffff; --guest-surface-2: #f4f7f5;
-  --guest-ink: #101a17; --guest-ink-3: #6c7c77;
+  /* Staff (dark) defaults — body and staff-shell */
+  --ground: #0d1412;
+  --surface: #141d1b;
+  --surface-2: #1d2825;
+  --surface-3: #27332f;
+  --line: #2e3b37;
+  --ink: #e9f0ed;
+  --ink-2: #a8bab5;
+  --ink-3: #768883;
+  --accent: #3fbf9e;
+  --accent-ink: #0d1412;
+  --accent-soft: #123028;
+  --accent-line: #2a5d53;
+  --brass: #d4a44a;
+  --brass-soft: #33280f;
+  --warn: #e0a356;
+  --warn-line: #5c3d14;
+  --danger: #ee8b84;
+  --danger-line: #6b2a26;
+  --queue: #8fb4dc;
+  --queue-line: #2e4560;
+
+  /* Guest (light) — applied via .guest-theme */
+  --guest-ground: #f2f4f0;
+  --guest-surface: #ffffff;
+  --guest-surface-2: #e8ede8;
+  --guest-line: #dce2dd;
+  --guest-ink: #12191a;
+  --guest-ink-2: #47565a;
+  --guest-ink-3: #78888c;
+  --guest-accent: #0e5c4a;
+  --guest-accent-soft: #d6eae3;
+  --guest-brass: #8a6520;
+  --guest-brass-soft: #f2e6ce;
 }
 
 @theme inline {
@@ -14,15 +43,93 @@
   --color-foreground: var(--ink);
   --font-sans: var(--font-archivo), "Helvetica Neue", Helvetica, Arial, sans-serif;
   --font-mono: var(--font-ibm-plex-mono), ui-monospace, Menlo, Consolas, monospace;
+  --font-display: var(--font-instrument-serif), Georgia, "Times New Roman", serif;
 }
 
-body { background: var(--ground); color: var(--ink); font-family: var(--font-sans); font-size: 15px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
-.num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
-.staff-shell { background: var(--ground); color: var(--ink); min-height: 100vh; }
-.staff-theme { --ground: #0c1412; --surface: #141e1b; --surface-2: #1b2723; --surface-3: #25332e; --line: #2c3a35; --ink: #e8efec; --ink-2: #afc0ba; --ink-3: #7e918b; --accent: #4fbfa8; --accent-ink: #06211c; --accent-soft: #16332d; --accent-line: #2a5d53; --warn: #e0a356; --danger: #ec8b84; --queue: #8fb0d4; --queue-line: #2e4560; }
-.guest-theme { --ground: var(--guest-ground); --surface: var(--guest-surface); --surface-2: var(--guest-surface-2); --line: #d3dcd8; --ink: var(--guest-ink); --ink-2: #3c4c47; --ink-3: var(--guest-ink-3); --accent: #0b6e5f; --accent-ink: #ffffff; --accent-soft: #d8ede8; --accent-line: #8fc9be; background: var(--guest-ground); color: var(--guest-ink); min-height: 100vh; }
-@keyframes kds-late-pulse { 0%, 100% { border-color: var(--danger); } 50% { border-color: #7a2f2a; } }
-.kds-late { animation: kds-late-pulse 1.6s ease-in-out infinite; }
-@media (prefers-reduced-motion: reduce) { .kds-late { animation: none; } }
-button { font: inherit; color: inherit; cursor: pointer; }
-button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+body {
+  background: var(--ground);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+.num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.wordmark {
+  font-family: var(--font-display);
+  color: var(--brass);
+}
+
+.staff-shell {
+  background: var(--ground);
+  color: var(--ink);
+  min-height: 100vh;
+}
+
+.staff-theme {
+  --ground: #0d1412;
+  --surface: #141d1b;
+  --surface-2: #1d2825;
+  --surface-3: #27332f;
+  --line: #2e3b37;
+  --ink: #e9f0ed;
+  --ink-2: #a8bab5;
+  --ink-3: #768883;
+  --accent: #3fbf9e;
+  --accent-ink: #0d1412;
+  --accent-soft: #123028;
+  --accent-line: #2a5d53;
+  --brass: #d4a44a;
+  --brass-soft: #33280f;
+  --warn: #e0a356;
+  --warn-line: #5c3d14;
+  --danger: #ee8b84;
+  --danger-line: #6b2a26;
+  --queue: #8fb4dc;
+  --queue-line: #2e4560;
+}
+
+.guest-theme {
+  --ground: var(--guest-ground);
+  --surface: var(--guest-surface);
+  --surface-2: var(--guest-surface-2);
+  --line: var(--guest-line);
+  --ink: var(--guest-ink);
+  --ink-2: var(--guest-ink-2);
+  --ink-3: var(--guest-ink-3);
+  --accent: var(--guest-accent);
+  --accent-ink: #ffffff;
+  --accent-soft: var(--guest-accent-soft);
+  --accent-line: #8fc9be;
+  --brass: var(--guest-brass);
+  --brass-soft: var(--guest-brass-soft);
+  --warn: #a8650c;
+  --warn-line: #c9a06a;
+  --danger: #a8241d;
+  --danger-line: #d4a09c;
+  --queue: #4a72a8;
+  --queue-line: #8fb0d4;
+  background: var(--guest-ground);
+  color: var(--guest-ink);
+  min-height: 100vh;
+}
+
+/* Late tickets use a static danger border (shape + colour). No staff animation except the age timer. */
+
+button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}

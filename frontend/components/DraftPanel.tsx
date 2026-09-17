@@ -50,14 +50,14 @@ export function DraftPanel({
                   ) : null}
                   {line.notes ? <p className="text-xs italic text-[var(--ink-3)]">{line.notes}</p> : null}
                 </div>
-                <span className="num text-sm font-semibold">{formatPesewas(lineTotalPesewas(line))}</span>
+                <span className="num text-sm font-semibold text-[var(--brass)]">{formatPesewas(lineTotalPesewas(line))}</span>
               </div>
               <div className="mt-2 flex items-center gap-2">
-                <button type="button" className="min-h-10 min-w-10 rounded border" onClick={() => onQuantityChange(line.client_id, line.quantity - 1)}>
+                <button type="button" className="min-h-14 min-w-14 rounded border" onClick={() => onQuantityChange(line.client_id, line.quantity - 1)}>
                   −
                 </button>
                 <span className="num min-w-6 text-center">{line.quantity}</span>
-                <button type="button" className="min-h-10 min-w-10 rounded border" onClick={() => onQuantityChange(line.client_id, line.quantity + 1)}>
+                <button type="button" className="min-h-14 min-w-14 rounded border" onClick={() => onQuantityChange(line.client_id, line.quantity + 1)}>
                   +
                 </button>
               </div>

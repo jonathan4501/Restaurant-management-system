@@ -6,7 +6,7 @@ import { ageSeconds, formatAge, ticketClockStart, urgencyFor, type Urgency } fro
 const BORDER: Record<Urgency, string> = {
   fresh: "border-[var(--line)]",
   warning: "border-[var(--warn)]",
-  late: "border-[var(--danger)] kds-late",
+  late: "border-[var(--danger)]",
 };
 
 const AGE_COLOUR: Record<Urgency, string> = {
@@ -45,7 +45,7 @@ export function TicketCard({
       data-urgency={urgency}
       data-status={ticket.status}
       data-pending={pending}
-      className={`rounded-xl border-2 bg-[var(--surface)] ${BORDER[urgency]} ${pending ? "opacity-60 outline-dashed outline-2 outline-[var(--accent-line)]" : ""}`}
+      className={`rounded-lg border-2 bg-[var(--surface)] ${BORDER[urgency]} ${pending ? "opacity-60 outline-dashed outline-2 outline-[var(--accent-line)]" : ""}`}
     >
       <header className="flex items-baseline justify-between gap-3 border-b border-[var(--line)] px-4 py-3">
         <div className="flex items-baseline gap-3">
@@ -71,15 +71,15 @@ export function TicketCard({
                 data-done={done}
                 disabled={done || ticket.status === "SUBMITTED"}
                 onClick={() => onLineReady(ticket, line)}
-                className={`flex w-full items-start gap-3 rounded-lg px-2 py-2 text-left disabled:cursor-default ${
+                className={`flex min-h-14 w-full items-start gap-3 rounded-lg px-2 py-2 text-left disabled:cursor-default ${
                   done ? "opacity-45 line-through" : "active:bg-[var(--surface-3)]"
                 }`}
               >
-                <span className="num min-w-9 text-2xl font-bold">{line.quantity}×</span>
+                <span className="num min-w-9 text-2xl font-bold text-[var(--brass)]">{line.quantity}×</span>
                 <span className="flex-1">
                   <span className="block text-2xl font-semibold leading-tight">{line.name}</span>
                   {line.modifiers.length > 0 ? (
-                    <span className="block text-lg font-medium text-[var(--accent)]">
+                    <span className="block text-lg font-medium italic text-[var(--warn)]">
                       {line.modifiers.map((m) => m.name).join(" · ")}
                     </span>
                   ) : null}

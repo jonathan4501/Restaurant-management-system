@@ -82,6 +82,7 @@ export default function LoginPage() {
     return (
       <main className="staff-shell staff-theme flex min-h-screen flex-col items-center justify-center gap-6 px-4">
         <div className="w-full max-w-sm">
+          <p className="wordmark mb-2 text-xl">RENZY</p>
           <h1 className="mb-1 text-2xl font-semibold">Enrol this device</h1>
           <p className="mb-4 text-sm text-[var(--ink-3)]">Enter the code from the manager once.</p>
           <label className="block text-sm font-medium">Enrolment code<input data-testid="enrolment-code" value={enrolCode} onChange={(e) => setEnrolCode(e.target.value)} className="mt-1 w-full min-h-14 rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 text-lg tracking-widest" autoComplete="off" /></label>
@@ -95,7 +96,7 @@ export default function LoginPage() {
 
   return (
     <main className="staff-shell staff-theme flex min-h-screen flex-col px-4 py-6">
-      <header className="mb-6 flex items-center justify-between"><div><p className="text-xs uppercase tracking-wide text-[var(--ink-3)]">RENZY</p><h1 className="text-2xl font-semibold">Who is signing in?</h1>{deviceLabel ? <p className="text-sm text-[var(--ink-3)]">{deviceLabel}</p> : null}</div><ConnectivityBadge /></header>
+      <header className="mb-6 flex items-center justify-between"><div><p className="wordmark text-xl">RENZY</p><h1 className="text-2xl font-semibold">Who is signing in?</h1>{deviceLabel ? <p className="text-sm text-[var(--ink-3)]">{deviceLabel}</p> : null}</div><ConnectivityBadge /></header>
       {staffError ? <p role="alert" data-testid="staff-error" className="mb-4 text-sm text-[var(--danger)]">{staffError}</p> : null}
       {!selected ? (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4" data-testid="staff-grid">
@@ -108,7 +109,7 @@ export default function LoginPage() {
         </div>
       ) : (
         <div className="mx-auto flex w-full max-w-sm flex-col items-center gap-4">
-          <button type="button" className="self-start min-h-11 text-sm text-[var(--accent)]" onClick={() => setSelected(null)}>← Back</button>
+          <button type="button" className="self-start min-h-14 text-sm text-[var(--accent)]" onClick={() => setSelected(null)}>← Back</button>
           <p className="text-lg font-semibold">{selected.name}</p>
           <PinPad value={pin} onChange={setPin} onSubmit={() => void pinMutation.mutate()} disabled={pinMutation.isPending} error={pinError} lockoutSeconds={lockout} />
         </div>

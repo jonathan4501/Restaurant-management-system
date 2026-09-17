@@ -40,13 +40,13 @@ export function ServiceWorkerRegister() {
     <div
       role="status"
       data-testid="sw-update-available"
-      className="fixed bottom-4 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-4 py-3 text-sm shadow-lg"
+      className="fixed bottom-4 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-4 py-3 text-sm"
     >
       <span>Update available</span>
       <button
         type="button"
         data-testid="sw-update-accept"
-        className="min-h-11 rounded-lg bg-[var(--accent)] px-4 font-semibold text-[var(--accent-ink)]"
+        className="min-h-14 rounded-lg bg-[var(--accent)] px-4 font-semibold text-[var(--accent-ink)]"
         onClick={() => {
           window.serwist?.messageSkipWaiting();
           setUpdateReady(false);
@@ -57,7 +57,7 @@ export function ServiceWorkerRegister() {
       <button
         type="button"
         data-testid="sw-update-dismiss"
-        className="min-h-11 rounded-lg border border-[var(--line)] px-3"
+        className="min-h-14 rounded-lg border border-[var(--line)] px-3"
         onClick={() => setUpdateReady(false)}
       >
         Later

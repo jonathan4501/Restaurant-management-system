@@ -40,8 +40,8 @@ export function TableGrid({ tables, selectedId, onSelect }: TableGridProps) {
           data-testid={`table-${table.number}`}
           data-state={chip}
           onClick={() => onSelect(table)}
-          className={`flex min-h-20 flex-col items-center justify-center gap-1 rounded-xl border-2 bg-[var(--surface)] p-3 active:bg-[var(--surface-3)] ${
-            selectedId === table.id ? "border-[var(--accent)] ring-2 ring-[var(--accent-soft)]" : "border-[var(--line)]"
+          className={`flex min-h-20 flex-col items-center justify-center gap-1 rounded-lg border-2 bg-[var(--surface)] p-3 active:bg-[var(--surface-3)] ${
+            selectedId === table.id ? "border-[var(--accent)]" : "border-[var(--line)]"
           }`}
         >
           <span className="num text-2xl font-semibold">{table.number}</span>
