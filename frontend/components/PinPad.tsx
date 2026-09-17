@@ -9,9 +9,19 @@ interface PinPadProps {
   disabled?: boolean;
   error?: string | null;
   lockoutSeconds?: number | null;
+  /** The pad is also the manager-authorisation pad, where "Sign in" is the wrong word. */
+  submitLabel?: string;
 }
 
-export function PinPad({ value, onChange, onSubmit, disabled, error, lockoutSeconds }: PinPadProps) {
+export function PinPad({
+  value,
+  onChange,
+  onSubmit,
+  disabled,
+  error,
+  lockoutSeconds,
+  submitLabel = "Sign in",
+}: PinPadProps) {
   const locked = (lockoutSeconds ?? 0) > 0;
 
   function press(key: (typeof KEYS)[number]) {
@@ -62,7 +72,7 @@ export function PinPad({ value, onChange, onSubmit, disabled, error, lockoutSeco
         onClick={onSubmit}
         className="flex min-h-16 items-center justify-center rounded-lg bg-[var(--accent)] text-lg font-semibold text-[var(--accent-ink)] disabled:opacity-40"
       >
-        Sign in
+        {submitLabel}
       </button>
     </div>
   );
