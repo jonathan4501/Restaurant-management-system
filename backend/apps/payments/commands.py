@@ -1,10 +1,4 @@
-"""
-Payments, shifts and the drawer. docs/08-backend-architecture.md §9, ADR-0008.
-
-Every cedi is attached to a shift, the bill is the table session, and settlement happens inside the
-same handler as the payment that closes it — so a bill can never be paid in full without being settled.
-Money is int pesewas throughout.
-"""
+"""Shift, drawer, payment and session-settlement command handlers (WS05)."""
 
 from __future__ import annotations
 
@@ -16,11 +10,13 @@ from django.db.models import Sum
 
 from apps.core.commands import CommandContext, CommandOutcome, EventDraft
 from apps.core.errors import ApiError, ErrorCode
-from apps.core.roles import AggregateType
-from apps.core.uuid7 import is_uuid7, uuid7
+from apps.core.money import require_pesewas
+from apps.core.roles import AggregateType, ActorRole, MANAGER_ROLES
+from apps.core.uuid7 import is_uuid7
 from apps.floor.models import TableSession
 from apps.orders.events import (
     DrawerCounted,
+    DrawerMovement as DrawerMovementPayload,
     EventType,
     OrderClosed,
     OrderReopened,
@@ -31,17 +27,17 @@ from apps.orders.events import (
     ShiftClosed,
     ShiftOpened,
 )
-from apps.orders.events import (
-    DrawerMovement as DrawerMovementPayload,
-)
 from apps.orders.models import Order, OrderStatus
 from apps.payments.models import DrawerMovement, Payment, PaymentMethod, Shift
+from apps.payments.tasks import notify_owner_reopen
 
-# An order is still in the kitchen's hands: paying now would close a bill that is still being cooked.
-UNSERVED = (OrderStatus.SUBMITTED, OrderStatus.PREPARING, OrderStatus.READY)
+UNSERVED = frozenset(
+    {OrderStatus.SUBMITTED, OrderStatus.PREPARING, OrderStatus.READY}
+)
+CASHIER_ROLES = frozenset({ActorRole.CASHIER, ActorRole.MANAGER, ActorRole.OWNER})
 
 
-def _require_uuid7(value: Any, field: str) -> uuid.UUID:
+def _require_uuid7(value: uuid.UUID, field: str = "id") -> uuid.UUID:
     if not is_uuid7(value):
         raise ApiError(
             400,
@@ -49,60 +45,130 @@ def _require_uuid7(value: Any, field: str) -> uuid.UUID:
             f"{field} must be a client-generated UUIDv7.",
             errors={field: ["Must be UUIDv7."]},
         )
-    return value if isinstance(value, uuid.UUID) else uuid.UUID(str(value))
+    return value
 
 
-def _require_actor(ctx: CommandContext) -> uuid.UUID:
-    if ctx.actor_id is None:
-        raise ApiError(403, ErrorCode.ROLE_NOT_ALLOWED, "A staff member must perform this action.")
-    return ctx.actor_id
-
-
-def open_shift_for(actor_id: uuid.UUID) -> Shift | None:
-    return Shift.objects.filter(cashier_id=actor_id, closed_at__isnull=True).first()
-
-
-def require_open_shift(ctx: CommandContext) -> Shift:
-    """Every payment and drawer movement belongs to a shift — that is the whole point of the shift."""
-    shift = open_shift_for(_require_actor(ctx))
-    if shift is None:
+def _require_pesewas_field(data: dict[str, Any], field: str, *, allow_zero: bool = False) -> int:
+    try:
+        value = require_pesewas(data[field])
+    except (KeyError, ValueError) as err:
         raise ApiError(
-            403,
-            ErrorCode.SHIFT_REQUIRED,
-            "Open a shift with the drawer float before taking money.",
+            400,
+            ErrorCode.VALIDATION_ERROR,
+            str(err) if not isinstance(err, KeyError) else f"{field} is required.",
+            errors={field: [str(err)]},
+        ) from err
+    if not allow_zero and value == 0:
+        raise ApiError(
+            400,
+            ErrorCode.VALIDATION_ERROR,
+            f"{field} must be greater than zero.",
+            errors={field: ["Must be > 0."]},
         )
-    return shift
+    return value
 
 
-def normalise_reference(raw: str | None) -> str | None:
-    """MoMo ids are keyed by hand on a phone: trim, strip spaces, upper-case so they match later."""
+def normalise_external_reference(raw: str | None) -> str | None:
+    """Trim, upper-case, strip spaces — tired cashiers type MoMo ids."""
     if raw is None:
         return None
-    cleaned = "".join(raw.split()).upper()
+    cleaned = "".join(raw.strip().upper().split())
     return cleaned or None
 
 
-# ------------------------------------------------------------------ shifts
+def require_open_shift(ctx: CommandContext) -> Shift:
+    if ctx.actor_id is None:
+        raise ApiError(403, ErrorCode.SHIFT_REQUIRED, "An open shift is required.")
+    try:
+        return Shift.objects.select_for_update().get(
+            cashier_id=ctx.actor_id, closed_at__isnull=True
+        )
+    except Shift.DoesNotExist as err:
+        raise ApiError(
+            403, ErrorCode.SHIFT_REQUIRED, "Open a shift before recording payments."
+        ) from err
+
+
+def _lock_session(session_id: uuid.UUID) -> TableSession:
+    try:
+        return (
+            TableSession.objects.select_for_update()
+            .select_related("table")
+            .get(pk=session_id)
+        )
+    except TableSession.DoesNotExist as err:
+        raise ApiError(404, ErrorCode.NOT_FOUND, "Session not found.") from err
+
+
+def _lock_shift(shift_id: uuid.UUID) -> Shift:
+    try:
+        return Shift.objects.select_for_update().get(pk=shift_id)
+    except Shift.DoesNotExist as err:
+        raise ApiError(404, ErrorCode.NOT_FOUND, "Shift not found.") from err
+
+
+def _assert_can_mutate_shift(ctx: CommandContext, shift: Shift) -> None:
+    if ctx.actor_role in MANAGER_ROLES:
+        return
+    if ctx.actor_id != shift.cashier_id:
+        raise ApiError(403, ErrorCode.ROLE_NOT_ALLOWED, "Cashiers may only manage their own shift.")
+
+
+def expected_cash_pesewas(shift: Shift) -> int:
+    """float + Σ non-voided CASH payments − Σ PAID_OUT + Σ PAID_IN."""
+    cash = (
+        Payment.objects.filter(shift_id=shift.id, method=PaymentMethod.CASH, voided_at__isnull=True)
+        .aggregate(s=Sum("amount_pesewas"))["s"]
+        or 0
+    )
+    paid_out = (
+        DrawerMovement.objects.filter(shift_id=shift.id, kind=DrawerMovement.Kind.PAID_OUT)
+        .aggregate(s=Sum("amount_pesewas"))["s"]
+        or 0
+    )
+    paid_in = (
+        DrawerMovement.objects.filter(shift_id=shift.id, kind=DrawerMovement.Kind.PAID_IN)
+        .aggregate(s=Sum("amount_pesewas"))["s"]
+        or 0
+    )
+    return int(shift.opening_float_pesewas) + int(cash) - int(paid_out) + int(paid_in)
+
+
+def totals_by_method(shift: Shift) -> dict[str, int]:
+    rows = (
+        Payment.objects.filter(shift_id=shift.id, voided_at__isnull=True)
+        .values("method")
+        .annotate(total=Sum("amount_pesewas"))
+    )
+    return {r["method"]: int(r["total"]) for r in rows}
+
+
+def _payment_summary(payment: Payment) -> dict[str, Any]:
+    return {
+        "id": str(payment.id),
+        "method": payment.method,
+        "amount_pesewas": int(payment.amount_pesewas),
+    }
 
 
 def open_shift(ctx: CommandContext, data: dict[str, Any]) -> CommandOutcome:
-    actor_id = _require_actor(ctx)
-    shift_id = _require_uuid7(data["id"], "id")
-    opening_float = int(data["opening_float_pesewas"])
+    shift_id = _require_uuid7(data["id"])
+    opening_float = _require_pesewas_field(data, "opening_float_pesewas", allow_zero=True)
 
-    existing = open_shift_for(actor_id)
-    if existing is not None:
-        raise ApiError(
-            409,
-            ErrorCode.SHIFT_ALREADY_OPEN,
-            "This cashier already has an open shift. Close it before opening another.",
-        )
+    if ctx.actor_id is None:
+        raise ApiError(403, ErrorCode.ROLE_NOT_ALLOWED, "A staff member must open the shift.")
+
+    if Shift.objects.filter(cashier_id=ctx.actor_id, closed_at__isnull=True).exists():
+        raise ApiError(409, ErrorCode.SHIFT_ALREADY_OPEN, "You already have an open shift.")
+
     if Shift.objects.filter(pk=shift_id).exists():
         raise ApiError(409, ErrorCode.VALIDATION_ERROR, "Shift id already exists.")
 
     payload = ShiftOpened(
-        cashier_id=str(actor_id), opening_float_pesewas=opening_float
+        cashier_id=str(ctx.actor_id),
+        opening_float_pesewas=opening_float,
     ).to_payload()
+
     return CommandOutcome(
         events=[
             EventDraft(
@@ -115,7 +181,7 @@ def open_shift(ctx: CommandContext, data: dict[str, Any]) -> CommandOutcome:
         ],
         response={
             "id": str(shift_id),
-            "cashier_id": str(actor_id),
+            "cashier_id": str(ctx.actor_id),
             "opening_float_pesewas": opening_float,
             "closed_at": None,
         },
@@ -123,53 +189,106 @@ def open_shift(ctx: CommandContext, data: dict[str, Any]) -> CommandOutcome:
     )
 
 
-def _shift_for_write(ctx: CommandContext, shift_id: uuid.UUID) -> Shift:
-    try:
-        shift = Shift.objects.select_for_update().get(pk=shift_id)
-    except Shift.DoesNotExist as err:
-        raise ApiError(404, ErrorCode.NOT_FOUND, "Shift not found.") from err
+def record_drawer_movement(
+    ctx: CommandContext, shift_id: uuid.UUID, data: dict[str, Any]
+) -> CommandOutcome:
+    if ctx.authorised_by is None:
+        raise ApiError(
+            403,
+            ErrorCode.AUTHORISATION_REQUIRED,
+            "Drawer movements need manager authorisation.",
+        )
+
+    shift = _lock_shift(shift_id)
     if shift.closed_at is not None:
-        raise ApiError(409, ErrorCode.VALIDATION_ERROR, "Shift is already closed.")
-    return shift
+        raise ApiError(409, ErrorCode.ILLEGAL_TRANSITION, "Cannot move cash on a closed shift.")
+    _assert_can_mutate_shift(ctx, shift)
 
+    movement_id = _require_uuid7(data["id"])
+    kind = data["kind"]
+    if kind not in DrawerMovement.Kind.values:
+        raise ApiError(
+            400,
+            ErrorCode.VALIDATION_ERROR,
+            "kind must be NO_SALE, PAID_OUT or PAID_IN.",
+            errors={"kind": ["Invalid."]},
+        )
 
-def shift_totals(shift_id: uuid.UUID, opening_float_pesewas: int) -> dict[str, Any]:
-    """expected = float + Σ cash − Σ paid out + Σ paid in. Voided payments never count."""
-    live = Payment.objects.filter(shift_id=shift_id, voided_at__isnull=True)
-    totals_by_method: dict[str, int] = {
-        row["method"]: int(row["total"])
-        for row in live.values("method").annotate(total=Sum("amount_pesewas"))
-    }
-    movements = DrawerMovement.objects.filter(shift_id=shift_id)
-    paid_out = int(
-        movements.filter(kind=DrawerMovement.Kind.PAID_OUT).aggregate(s=Sum("amount_pesewas"))["s"]
-        or 0
+    if kind == DrawerMovement.Kind.NO_SALE:
+        amount = 0
+    else:
+        amount = _require_pesewas_field(data, "amount_pesewas")
+
+    note = data.get("note") or ""
+    reason = ctx.reason_code or data.get("reason_code")
+    if not reason:
+        raise ApiError(
+            400,
+            ErrorCode.VALIDATION_ERROR,
+            "reason_code is required.",
+            errors={"reason_code": ["Required."]},
+        )
+
+    if DrawerMovement.objects.filter(pk=movement_id).exists():
+        raise ApiError(409, ErrorCode.VALIDATION_ERROR, "Movement id already exists.")
+
+    payload = DrawerMovementPayload(
+        movement_id=str(movement_id),
+        kind=kind,
+        amount_pesewas=amount,
+        note=note,
+    ).to_payload()
+
+    return CommandOutcome(
+        events=[
+            EventDraft(
+                AggregateType.SHIFT,
+                shift.id,
+                EventType.DRAWER_MOVEMENT,
+                payload,
+                event_id=movement_id,
+                reason_code=reason,
+            )
+        ],
+        response={
+            "id": str(movement_id),
+            "shift_id": str(shift.id),
+            "kind": kind,
+            "amount_pesewas": amount,
+            "reason_code": reason,
+            "note": note,
+        },
+        status=201,
     )
-    paid_in = int(
-        movements.filter(kind=DrawerMovement.Kind.PAID_IN).aggregate(s=Sum("amount_pesewas"))["s"]
-        or 0
-    )
-    cash = totals_by_method.get(PaymentMethod.CASH, 0)
-    return {
-        "opening_float_pesewas": int(opening_float_pesewas),
-        "cash_payments_pesewas": cash,
-        "paid_out_pesewas": paid_out,
-        "paid_in_pesewas": paid_in,
-        "expected_cash_pesewas": int(opening_float_pesewas) + cash - paid_out + paid_in,
-        "totals_by_method": totals_by_method,
-        "payment_count": live.count(),
-    }
 
 
 def close_shift(ctx: CommandContext, shift_id: uuid.UUID, data: dict[str, Any]) -> CommandOutcome:
-    actor_id = _require_actor(ctx)
-    shift = _shift_for_write(ctx, shift_id)
-    declared = int(data["declared_cash_pesewas"])
-    note = data.get("note") or ""
+    shift = _lock_shift(shift_id)
+    if shift.closed_at is not None:
+        raise ApiError(409, ErrorCode.ILLEGAL_TRANSITION, "Shift is already closed.")
+    _assert_can_mutate_shift(ctx, shift)
 
-    totals = shift_totals(shift.id, int(shift.opening_float_pesewas))
-    expected = totals["expected_cash_pesewas"]
+    declared = _require_pesewas_field(data, "declared_cash_pesewas", allow_zero=True)
+    notes = data.get("notes") or ""
+    expected = expected_cash_pesewas(shift)
     variance = declared - expected
+
+    cash_payments = (
+        Payment.objects.filter(shift_id=shift.id, method=PaymentMethod.CASH, voided_at__isnull=True)
+        .aggregate(s=Sum("amount_pesewas"))["s"]
+        or 0
+    )
+    paid_out = (
+        DrawerMovement.objects.filter(shift_id=shift.id, kind=DrawerMovement.Kind.PAID_OUT)
+        .aggregate(s=Sum("amount_pesewas"))["s"]
+        or 0
+    )
+    paid_in = (
+        DrawerMovement.objects.filter(shift_id=shift.id, kind=DrawerMovement.Kind.PAID_IN)
+        .aggregate(s=Sum("amount_pesewas"))["s"]
+        or 0
+    )
+    by_method = totals_by_method(shift)
 
     counted = DrawerCounted(
         declared_cash_pesewas=declared,
@@ -178,18 +297,17 @@ def close_shift(ctx: CommandContext, shift_id: uuid.UUID, data: dict[str, Any]) 
     ).to_payload()
     closed = ShiftClosed(
         cashier_id=str(shift.cashier_id),
-        opening_float_pesewas=totals["opening_float_pesewas"],
-        cash_payments_pesewas=totals["cash_payments_pesewas"],
-        paid_out_pesewas=totals["paid_out_pesewas"],
-        paid_in_pesewas=totals["paid_in_pesewas"],
+        opening_float_pesewas=int(shift.opening_float_pesewas),
+        cash_payments_pesewas=int(cash_payments),
+        paid_out_pesewas=int(paid_out),
+        paid_in_pesewas=int(paid_in),
         expected_cash_pesewas=expected,
         declared_cash_pesewas=declared,
         variance_pesewas=variance,
-        totals_by_method=totals["totals_by_method"],
-        note=note,
+        totals_by_method=by_method,
+        note=notes,
     ).to_payload()
 
-    del actor_id
     return CommandOutcome(
         events=[
             EventDraft(AggregateType.SHIFT, shift.id, EventType.DRAWER_COUNTED, counted),
@@ -197,237 +315,324 @@ def close_shift(ctx: CommandContext, shift_id: uuid.UUID, data: dict[str, Any]) 
         ],
         response={
             "id": str(shift.id),
-            "cashier_id": str(shift.cashier_id),
-            **totals,
+            "opening_float_pesewas": int(shift.opening_float_pesewas),
+            "expected_cash_pesewas": expected,
             "declared_cash_pesewas": declared,
             "variance_pesewas": variance,
-            "note": note,
+            "totals_by_method": by_method,
+            "notes": notes,
         },
     )
-
-
-def record_drawer_movement(
-    ctx: CommandContext, shift_id: uuid.UUID, data: dict[str, Any]
-) -> CommandOutcome:
-    shift = _shift_for_write(ctx, shift_id)
-    kind = data["kind"]
-    # A no-sale is the drawer opening with no money moving. It still leaves a trace.
-    amount = 0 if kind == DrawerMovement.Kind.NO_SALE else int(data["amount_pesewas"])
-    if kind != DrawerMovement.Kind.NO_SALE and amount <= 0:
-        raise ApiError(
-            400,
-            ErrorCode.VALIDATION_ERROR,
-            "Paid in and paid out need an amount above zero.",
-            errors={"amount_pesewas": ["Must be greater than zero."]},
-        )
-
-    movement_id = uuid7()
-    payload = DrawerMovementPayload(
-        movement_id=str(movement_id),
-        kind=str(kind),
-        amount_pesewas=amount,
-        note=data.get("note") or "",
-    ).to_payload()
-    return CommandOutcome(
-        events=[EventDraft(AggregateType.SHIFT, shift.id, EventType.DRAWER_MOVEMENT, payload)],
-        response={
-            "id": str(movement_id),
-            "shift_id": str(shift.id),
-            "kind": str(kind),
-            "amount_pesewas": amount,
-        },
-        status=201,
-    )
-
-
-# ------------------------------------------------------------------ payments
-
-
-def _session_for_write(session_id: uuid.UUID) -> TableSession:
-    try:
-        session = (
-            TableSession.objects.select_for_update().select_related("table").get(pk=session_id)
-        )
-    except TableSession.DoesNotExist as err:
-        raise ApiError(404, ErrorCode.NOT_FOUND, "Session not found.") from err
-    return session
-
-
-def _live_paid(session_id: uuid.UUID) -> int:
-    return int(
-        Payment.objects.filter(session_id=session_id, voided_at__isnull=True).aggregate(
-            s=Sum("amount_pesewas")
-        )["s"]
-        or 0
-    )
-
-
-def _settlement_events(session: TableSession, paid: int, payments_summary: list[dict[str, Any]]):
-    """SESSION_SETTLED plus one ORDER_CLOSED per served order — the bill is done."""
-    served = list(Order.objects.filter(session_id=session.id, status=OrderStatus.SERVED))
-    events = [
-        EventDraft(
-            AggregateType.SESSION,
-            session.id,
-            EventType.SESSION_SETTLED,
-            SessionSettled(
-                table_number=session.table.number,
-                bill_total_pesewas=int(session.bill_total_pesewas),
-                paid_pesewas=paid,
-                order_ids=[str(o.id) for o in served],
-                payments=payments_summary,
-            ).to_payload(),
-        )
-    ]
-    for order in served:
-        events.append(
-            EventDraft(
-                AggregateType.ORDER,
-                order.id,
-                EventType.ORDER_CLOSED,
-                OrderClosed(
-                    order_number=int(order.order_number or 0),
-                    session_id=str(session.id),
-                    total_pesewas=int(order.total_pesewas),
-                ).to_payload(),
-                order_id=order.id,
-            )
-        )
-    return events
 
 
 def record_payment(
     ctx: CommandContext, session_id: uuid.UUID, data: dict[str, Any]
 ) -> CommandOutcome:
     shift = require_open_shift(ctx)
-    session = _session_for_write(session_id)
-    if session.closed_at is not None:
-        raise ApiError(409, ErrorCode.SESSION_CLOSED, "This bill is closed.")
+    session = _lock_session(session_id)
 
-    unserved = list(
-        Order.objects.filter(session_id=session.id, status__in=UNSERVED).order_by("order_number")
-    )
-    if unserved:
-        numbers = ", ".join(f"#{o.order_number}" for o in unserved if o.order_number)
+    if session.closed_at is not None:
+        raise ApiError(409, ErrorCode.SESSION_CLOSED, "Session is closed.")
+    if session.settled_at is not None:
         raise ApiError(
-            409,
-            ErrorCode.UNSERVED_ORDERS,
-            f"Serve every order before taking payment: {numbers or 'order still in the kitchen'}.",
+            409, ErrorCode.ILLEGAL_TRANSITION, "Session is settled; reopen before taking payment."
         )
 
-    payment_id = _require_uuid7(data["id"], "id")
-    if Payment.objects.filter(pk=payment_id).exists():
-        raise ApiError(409, ErrorCode.VALIDATION_ERROR, "Payment id already exists.")
-
-    amount = int(data["amount_pesewas"])
+    payment_id = _require_uuid7(data["id"])
     method = data["method"]
-    bill_total = int(session.bill_total_pesewas)
-    already_paid = _live_paid(session.id)
-    balance_before = bill_total - already_paid
-
-    if amount <= 0:
+    if method not in PaymentMethod.values:
         raise ApiError(
             400,
             ErrorCode.VALIDATION_ERROR,
-            "A payment must be greater than zero.",
-            errors={"amount_pesewas": ["Must be greater than zero."]},
+            "Invalid payment method.",
+            errors={"method": ["Invalid."]},
         )
-    if amount > balance_before:
+
+    amount = _require_pesewas_field(data, "amount_pesewas")
+    order_id = data.get("order_id")
+    external_reference = normalise_external_reference(data.get("external_reference"))
+
+    orders = list(Order.objects.select_for_update().filter(session_id=session.id))
+    if any(o.status in UNSERVED for o in orders):
+        raise ApiError(
+            409,
+            ErrorCode.UNSERVED_ORDERS,
+            "Cannot take payment while food is still in the kitchen.",
+        )
+
+    bill_total = int(session.bill_total_pesewas)
+    paid = int(session.paid_pesewas)
+    balance = bill_total - paid
+    if amount > balance:
         raise ApiError(
             422,
             ErrorCode.OVERPAYMENT,
-            f"This bill only has {balance_before} pesewas left to pay.",
-            errors={"balance_pesewas": [balance_before]},
+            f"Payment of {amount} exceeds balance {balance}.",
         )
 
-    tendered = data.get("tendered_pesewas")
+    tendered: int | None = None
     change: int | None = None
     if method == PaymentMethod.CASH:
-        if tendered is None:
-            tendered = amount
-        tendered = int(tendered)
+        if "tendered_pesewas" not in data or data["tendered_pesewas"] is None:
+            raise ApiError(
+                400,
+                ErrorCode.VALIDATION_ERROR,
+                "tendered_pesewas is required for cash.",
+                errors={"tendered_pesewas": ["Required for CASH."]},
+            )
+        tendered = _require_pesewas_field(data, "tendered_pesewas", allow_zero=True)
         if tendered < amount:
             raise ApiError(
                 422,
                 ErrorCode.TENDERED_INSUFFICIENT,
-                "The cash handed over is less than the amount being paid.",
-                errors={"tendered_pesewas": [tendered], "amount_pesewas": [amount]},
+                "Cash tendered must cover the payment amount.",
             )
         change = tendered - amount
-    else:
-        tendered = None
 
-    reference = normalise_reference(data.get("external_reference"))
-    order_id = data.get("order_id")
-    if (
-        order_id is not None
-        and not Order.objects.filter(pk=order_id, session_id=session.id).exists()
-    ):
-        raise ApiError(404, ErrorCode.NOT_FOUND, "Order not found on this bill.")
+    if Payment.objects.filter(pk=payment_id).exists():
+        raise ApiError(409, ErrorCode.VALIDATION_ERROR, "Payment id already exists.")
 
-    paid_after = already_paid + amount
-    balance_after = bill_total - paid_after
+    new_paid = paid + amount
+    new_balance = bill_total - new_paid
 
-    payload = PaymentRecorded(
-        payment_id=str(payment_id),
-        shift_id=str(shift.id),
-        method=str(method),
-        amount_pesewas=amount,
-        tendered_pesewas=tendered,
-        change_pesewas=change,
-        external_reference=reference,
-        order_id=str(order_id) if order_id else None,
-        bill_total_pesewas=bill_total,
-        paid_pesewas=paid_after,
-        balance_pesewas=balance_after,
-    ).to_payload()
+    events: list[EventDraft] = [
+        EventDraft(
+            AggregateType.SESSION,
+            session.id,
+            EventType.PAYMENT_RECORDED,
+            PaymentRecorded(
+                payment_id=str(payment_id),
+                shift_id=str(shift.id),
+                method=method,
+                amount_pesewas=amount,
+                tendered_pesewas=tendered,
+                change_pesewas=change,
+                external_reference=external_reference,
+                order_id=str(order_id) if order_id else None,
+                bill_total_pesewas=bill_total,
+                paid_pesewas=new_paid,
+                balance_pesewas=new_balance,
+            ).to_payload(),
+            event_id=payment_id,
+            order_id=order_id,
+        )
+    ]
 
-    events = [EventDraft(AggregateType.SESSION, session.id, EventType.PAYMENT_RECORDED, payload)]
-    settled = balance_after == 0
-    if settled:
-        summary = [
-            {"method": p.method, "amount_pesewas": int(p.amount_pesewas)}
+    response: dict[str, Any] = {
+        "id": str(payment_id),
+        "session_id": str(session.id),
+        "shift_id": str(shift.id),
+        "method": method,
+        "amount_pesewas": amount,
+        "tendered_pesewas": tendered,
+        "change_pesewas": change,
+        "external_reference": external_reference,
+        "bill_total_pesewas": bill_total,
+        "paid_pesewas": new_paid,
+        "balance_pesewas": new_balance,
+        "settled": False,
+    }
+
+    if new_balance == 0:
+        served = [o for o in orders if o.status == OrderStatus.SERVED]
+        order_ids = [str(o.id) for o in served]
+        # Existing non-voided payments plus this one (not yet projected).
+        payment_rows = [
+            _payment_summary(p)
             for p in Payment.objects.filter(session_id=session.id, voided_at__isnull=True)
         ]
-        summary.append({"method": str(method), "amount_pesewas": amount})
-        events += _settlement_events(session, paid_after, summary)
+        payment_rows.append(
+            {"id": str(payment_id), "method": method, "amount_pesewas": amount}
+        )
+        events.append(
+            EventDraft(
+                AggregateType.SESSION,
+                session.id,
+                EventType.SESSION_SETTLED,
+                SessionSettled(
+                    table_number=session.table.number,
+                    bill_total_pesewas=bill_total,
+                    paid_pesewas=new_paid,
+                    order_ids=order_ids,
+                    payments=payment_rows,
+                ).to_payload(),
+            )
+        )
+        for order in served:
+            events.append(
+                EventDraft(
+                    AggregateType.ORDER,
+                    order.id,
+                    EventType.ORDER_CLOSED,
+                    OrderClosed(
+                        order_number=int(order.order_number or 0),
+                        session_id=str(session.id),
+                        total_pesewas=int(order.total_pesewas),
+                    ).to_payload(),
+                    order_id=order.id,
+                )
+            )
+        response["settled"] = True
+        response["closed_order_ids"] = order_ids
+
+    return CommandOutcome(events=events, response=response, status=201)
+
+
+def void_payment(ctx: CommandContext, payment_id: uuid.UUID, data: dict[str, Any]) -> CommandOutcome:
+    if ctx.authorised_by is None:
+        raise ApiError(
+            403,
+            ErrorCode.AUTHORISATION_REQUIRED,
+            "Voiding a payment needs manager authorisation.",
+        )
+
+    reason = ctx.reason_code or data.get("reason_code")
+    if not reason:
+        raise ApiError(
+            400,
+            ErrorCode.VALIDATION_ERROR,
+            "reason_code is required.",
+            errors={"reason_code": ["Required."]},
+        )
+
+    try:
+        payment = Payment.objects.select_for_update().get(pk=payment_id)
+    except Payment.DoesNotExist as err:
+        raise ApiError(404, ErrorCode.NOT_FOUND, "Payment not found.") from err
+
+    if payment.voided_at is not None:
+        raise ApiError(409, ErrorCode.ILLEGAL_TRANSITION, "Payment is already voided.")
+
+    session = _lock_session(payment.session_id)
+    was_settled = session.settled_at is not None
+    bill_total = int(session.bill_total_pesewas)
+    new_paid = int(session.paid_pesewas) - int(payment.amount_pesewas)
+    new_balance = bill_total - new_paid
+    note = data.get("note") or ""
+
+    events: list[EventDraft] = [
+        EventDraft(
+            AggregateType.SESSION,
+            session.id,
+            EventType.PAYMENT_VOIDED,
+            PaymentVoided(
+                payment_id=str(payment.id),
+                amount_pesewas=int(payment.amount_pesewas),
+                method=payment.method,
+                balance_pesewas=new_balance,
+                note=note,
+            ).to_payload(),
+            reason_code=reason,
+        )
+    ]
+
+    closed_orders: list[Order] = []
+    if was_settled:
+        closed_orders = list(
+            Order.objects.select_for_update().filter(
+                session_id=session.id, status=OrderStatus.CLOSED
+            )
+        )
+        order_ids = [str(o.id) for o in closed_orders]
+        events.append(
+            EventDraft(
+                AggregateType.SESSION,
+                session.id,
+                EventType.SESSION_REOPENED,
+                SessionReopened(
+                    table_number=session.table.number,
+                    order_ids=order_ids,
+                    note=note,
+                ).to_payload(),
+                reason_code=reason,
+            )
+        )
+        for order in closed_orders:
+            events.append(
+                EventDraft(
+                    AggregateType.ORDER,
+                    order.id,
+                    EventType.ORDER_REOPENED,
+                    OrderReopened(
+                        order_number=int(order.order_number or 0),
+                        session_id=str(session.id),
+                        note=note,
+                    ).to_payload(),
+                    order_id=order.id,
+                    reason_code=reason,
+                )
+            )
+
+        restaurant_id = str(ctx.restaurant_id)
+        sid = str(session.id)
+
+        def _notify() -> None:
+            notify_owner_reopen.delay(restaurant_id, sid, reason)
+
+        transaction.on_commit(_notify)
 
     return CommandOutcome(
         events=events,
         response={
-            "id": str(payment_id),
+            "id": str(payment.id),
+            "voided": True,
             "session_id": str(session.id),
-            "shift_id": str(shift.id),
-            "method": str(method),
-            "amount_pesewas": amount,
-            "tendered_pesewas": tendered,
-            "change_pesewas": change,
-            "external_reference": reference,
-            "bill_total_pesewas": bill_total,
-            "paid_pesewas": paid_after,
-            "balance_pesewas": balance_after,
-            "settled": settled,
+            "balance_pesewas": new_balance,
+            "paid_pesewas": new_paid,
+            "session_reopened": was_settled,
+            "reopened_order_ids": [str(o.id) for o in closed_orders],
+            "reason_code": reason,
         },
-        status=201,
     )
 
 
-def _reopen_events(session: TableSession, note: str):
-    """Undo a settlement: the bill is live again and its closed orders go back to SERVED."""
-    closed = list(Order.objects.filter(session_id=session.id, status=OrderStatus.CLOSED))
-    events = [
+def reopen_session(
+    ctx: CommandContext, session_id: uuid.UUID, data: dict[str, Any]
+) -> CommandOutcome:
+    if ctx.authorised_by is None:
+        raise ApiError(
+            403,
+            ErrorCode.AUTHORISATION_REQUIRED,
+            "Reopening a bill needs manager authorisation.",
+        )
+
+    reason = ctx.reason_code or data.get("reason_code")
+    if not reason:
+        raise ApiError(
+            400,
+            ErrorCode.VALIDATION_ERROR,
+            "reason_code is required.",
+            errors={"reason_code": ["Required."]},
+        )
+
+    session = _lock_session(session_id)
+    if session.settled_at is None and session.closed_at is None:
+        raise ApiError(
+            409, ErrorCode.ILLEGAL_TRANSITION, "Session is not settled or closed."
+        )
+
+    note = data.get("note") or ""
+    closed_orders = list(
+        Order.objects.select_for_update().filter(
+            session_id=session.id, status=OrderStatus.CLOSED
+        )
+    )
+    order_ids = [str(o.id) for o in closed_orders]
+
+    events: list[EventDraft] = [
         EventDraft(
             AggregateType.SESSION,
             session.id,
             EventType.SESSION_REOPENED,
             SessionReopened(
                 table_number=session.table.number,
-                order_ids=[str(o.id) for o in closed],
+                order_ids=order_ids,
                 note=note,
             ).to_payload(),
+            reason_code=reason,
         )
     ]
-    for order in closed:
+    for order in closed_orders:
         events.append(
             EventDraft(
                 AggregateType.ORDER,
@@ -439,95 +644,24 @@ def _reopen_events(session: TableSession, note: str):
                     note=note,
                 ).to_payload(),
                 order_id=order.id,
+                reason_code=reason,
             )
         )
-    return events
 
+    restaurant_id = str(ctx.restaurant_id)
+    sid = str(session.id)
 
-def void_payment(
-    ctx: CommandContext, payment_id: uuid.UUID, data: dict[str, Any]
-) -> CommandOutcome:
-    try:
-        payment = Payment.objects.select_for_update().get(pk=payment_id)
-    except Payment.DoesNotExist as err:
-        raise ApiError(404, ErrorCode.NOT_FOUND, "Payment not found.") from err
-    if payment.voided_at is not None:
-        raise ApiError(409, ErrorCode.VALIDATION_ERROR, "Payment is already voided.")
+    def _notify() -> None:
+        notify_owner_reopen.delay(restaurant_id, sid, reason)
 
-    session = _session_for_write(payment.session_id)
-    note = data.get("note") or ""
-    amount = int(payment.amount_pesewas)
-    paid_after = _live_paid(session.id) - amount
-    balance_after = int(session.bill_total_pesewas) - paid_after
+    transaction.on_commit(_notify)
 
-    events = [
-        EventDraft(
-            AggregateType.SESSION,
-            session.id,
-            EventType.PAYMENT_VOIDED,
-            PaymentVoided(
-                payment_id=str(payment.id),
-                amount_pesewas=amount,
-                method=payment.method,
-                balance_pesewas=balance_after,
-                note=note,
-            ).to_payload(),
-        )
-    ]
-    # Voiding money off a settled bill puts the bill back in play; the owner is told (flagged events).
-    if session.settled_at is not None and balance_after > 0:
-        events += _reopen_events(session, note or "payment voided")
-
-    return CommandOutcome(
-        events=events,
-        response={
-            "id": str(payment.id),
-            "session_id": str(session.id),
-            "voided": True,
-            "amount_pesewas": amount,
-            "paid_pesewas": paid_after,
-            "balance_pesewas": balance_after,
-            "session_reopened": session.settled_at is not None and balance_after > 0,
-        },
-    )
-
-
-def _alert_owner_after_commit(ctx: CommandContext, session: TableSession, note: str) -> None:
-    """The owner hears about a reopened bill without having to go looking for it."""
-    from apps.accounts.models import Staff
-    from apps.payments.tasks import notify_owner_reopen
-
-    wanted = [i for i in (ctx.actor_id, ctx.authorised_by) if i is not None]
-    names = {s.id: s.full_name for s in Staff.objects.filter(id__in=wanted)}
-    payload = (
-        str(ctx.restaurant_id),
-        str(session.id),
-        session.table.number,
-        names.get(ctx.actor_id, "A staff member") if ctx.actor_id else "A staff member",
-        names.get(ctx.authorised_by, "a manager") if ctx.authorised_by else "a manager",
-        note,
-    )
-    transaction.on_commit(lambda: notify_owner_reopen.delay(*payload))
-
-
-def reopen_session(
-    ctx: CommandContext, session_id: uuid.UUID, data: dict[str, Any]
-) -> CommandOutcome:
-    session = _session_for_write(session_id)
-    if session.settled_at is None and session.closed_at is None:
-        raise ApiError(409, ErrorCode.VALIDATION_ERROR, "This bill is already open.")
-
-    note = data.get("note") or ""
-    events = _reopen_events(session, note)
-    _alert_owner_after_commit(ctx, session, note)
     return CommandOutcome(
         events=events,
         response={
             "id": str(session.id),
             "reopened": True,
-            "table_number": session.table.number,
-            "bill_total_pesewas": int(session.bill_total_pesewas),
-            "paid_pesewas": _live_paid(session.id),
-            "balance_pesewas": int(session.bill_total_pesewas) - _live_paid(session.id),
+            "order_ids": order_ids,
+            "reason_code": reason,
         },
     )
