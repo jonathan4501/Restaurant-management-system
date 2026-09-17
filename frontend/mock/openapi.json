@@ -912,6 +912,464 @@
           }
         }
       }
+    },
+    "/api/v1/shifts/current": {
+      "get": {
+        "operationId": "shifts_current",
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {
+              "application/json": {
+                "example": {
+                  "shift": {
+                    "id": "sh100000-0000-7000-8000-000000000001",
+                    "cashier_id": "b1000002-0002-4002-8002-000000000002",
+                    "cashier_name": "Akosua Boateng",
+                    "opened_at": "2026-09-16T08:00:00Z",
+                    "closed_at": null,
+                    "opening_float_pesewas": 20000,
+                    "cash_payments_pesewas": 0,
+                    "paid_out_pesewas": 0,
+                    "paid_in_pesewas": 0,
+                    "expected_cash_pesewas": 20000,
+                    "declared_cash_pesewas": null,
+                    "variance_pesewas": null,
+                    "totals_by_method": {},
+                    "payment_count": 0
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/shifts": {
+      "post": {
+        "operationId": "shifts_open",
+        "responses": {
+          "201": {
+            "description": "created",
+            "content": {
+              "application/json": {
+                "example": {
+                  "id": "sh100000-0000-7000-8000-000000000001",
+                  "cashier_id": "b1000002-0002-4002-8002-000000000002",
+                  "cashier_name": "Akosua Boateng",
+                  "opened_at": "2026-09-16T08:00:00Z",
+                  "closed_at": null,
+                  "opening_float_pesewas": 20000,
+                  "cash_payments_pesewas": 0,
+                  "paid_out_pesewas": 0,
+                  "paid_in_pesewas": 0,
+                  "expected_cash_pesewas": 20000,
+                  "declared_cash_pesewas": null,
+                  "variance_pesewas": null,
+                  "totals_by_method": {},
+                  "payment_count": 0
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/shifts/{shift_id}/close": {
+      "post": {
+        "operationId": "shifts_close",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "shift_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {
+              "application/json": {
+                "example": {
+                  "id": "sh100000-0000-7000-8000-000000000001",
+                  "cashier_id": "b1000002-0002-4002-8002-000000000002",
+                  "opening_float_pesewas": 20000,
+                  "cash_payments_pesewas": 13300,
+                  "paid_out_pesewas": 0,
+                  "paid_in_pesewas": 0,
+                  "expected_cash_pesewas": 33300,
+                  "totals_by_method": {
+                    "CASH": 13300
+                  },
+                  "payment_count": 1,
+                  "declared_cash_pesewas": 33000,
+                  "variance_pesewas": -300,
+                  "note": ""
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/shifts/{shift_id}/z-report": {
+      "get": {
+        "operationId": "shifts_z_report",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "shift_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {
+              "application/json": {
+                "example": {
+                  "id": "sh100000-0000-7000-8000-000000000001",
+                  "cashier_id": "b1000002-0002-4002-8002-000000000002",
+                  "cashier_name": "Akosua Boateng",
+                  "opened_at": "2026-09-16T08:00:00Z",
+                  "closed_at": "2026-09-16T23:05:00Z",
+                  "opening_float_pesewas": 20000,
+                  "cash_payments_pesewas": 13300,
+                  "paid_out_pesewas": 0,
+                  "paid_in_pesewas": 0,
+                  "expected_cash_pesewas": 33300,
+                  "declared_cash_pesewas": 33000,
+                  "variance_pesewas": -300,
+                  "totals_by_method": {
+                    "CASH": 13300,
+                    "MOMO_MTN": 3325
+                  },
+                  "payment_count": 2,
+                  "money_taken_pesewas": 16625,
+                  "payments": [
+                    {
+                      "id": "p1000000-0000-7000-8000-000000000001",
+                      "table_number": "7",
+                      "method": "CASH",
+                      "amount_pesewas": 13300,
+                      "external_reference": null,
+                      "recorded_at": "2026-09-16T20:15:00Z",
+                      "voided_at": null
+                    },
+                    {
+                      "id": "p1000000-0000-7000-8000-000000000002",
+                      "table_number": "3",
+                      "method": "MOMO_MTN",
+                      "amount_pesewas": 3325,
+                      "external_reference": "MP260912345678",
+                      "recorded_at": "2026-09-16T20:40:00Z",
+                      "voided_at": null
+                    }
+                  ],
+                  "movements": []
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/shifts/{shift_id}/movements": {
+      "post": {
+        "operationId": "shifts_movement",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "shift_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "created",
+            "content": {
+              "application/json": {
+                "example": {
+                  "id": "dm100000-0000-7000-8000-000000000001"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/bills/open": {
+      "get": {
+        "operationId": "bills_open",
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {
+              "application/json": {
+                "example": {
+                  "bills": [
+                    {
+                      "session_id": "s2000000-0000-4000-8000-000000000007",
+                      "table_id": "0d51acb8-5e6a-5646-9003-ec4053f729e6",
+                      "table_number": "7",
+                      "opened_at": "2026-09-16T19:12:00Z",
+                      "order_count": 1,
+                      "bill_total_pesewas": 13300,
+                      "paid_pesewas": 0,
+                      "balance_pesewas": 13300,
+                      "state": "ready_to_pay",
+                      "payable": true
+                    },
+                    {
+                      "session_id": "s2000000-0000-4000-8000-000000000003",
+                      "table_id": "1e62bdc9-6f7b-5757-a114-fd5164e83af7",
+                      "table_number": "3",
+                      "opened_at": "2026-09-16T19:48:00Z",
+                      "order_count": 1,
+                      "bill_total_pesewas": 8500,
+                      "paid_pesewas": 0,
+                      "balance_pesewas": 8500,
+                      "state": "cooking",
+                      "payable": false
+                    }
+                  ],
+                  "outstanding_pesewas": 21800
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sessions/{session_id}/bill": {
+      "get": {
+        "operationId": "sessions_bill",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {
+              "application/json": {
+                "example": {
+                  "session_id": "s2000000-0000-4000-8000-000000000007",
+                  "table_id": "0d51acb8-5e6a-5646-9003-ec4053f729e6",
+                  "table_number": "7",
+                  "lines": [
+                    {
+                      "item_id": "i2000000-0000-7000-8000-000000000001",
+                      "menu_item_id": "60c90854-cbda-59e0-81c2-326fdfc47793",
+                      "name": "Jollof Rice with Grilled Chicken",
+                      "unit_price_pesewas": 7500,
+                      "quantity": 1,
+                      "line_total_pesewas": 8300,
+                      "modifiers": [
+                        {
+                          "id": "fcad2e62-ac05-5202-b259-69907ab3b43c",
+                          "name": "Fried plantain",
+                          "price_pesewas": 800
+                        }
+                      ],
+                      "notes": "no onions",
+                      "order_id": "o2000000-0000-7000-8000-000000000001",
+                      "order_number": 1046
+                    },
+                    {
+                      "item_id": "i2000000-0000-7000-8000-000000000002",
+                      "menu_item_id": "9a4d1f22-7c1e-5a10-9d33-2b7d0f5c8811",
+                      "name": "Club Beer",
+                      "unit_price_pesewas": 2500,
+                      "quantity": 2,
+                      "line_total_pesewas": 5000,
+                      "modifiers": [],
+                      "notes": "",
+                      "order_id": "o2000000-0000-7000-8000-000000000001",
+                      "order_number": 1046
+                    }
+                  ],
+                  "discounts": [],
+                  "bill_total_pesewas": 13300,
+                  "paid_pesewas": 0,
+                  "balance_pesewas": 13300,
+                  "orders": [
+                    {
+                      "id": "o2000000-0000-7000-8000-000000000001",
+                      "order_number": 1046,
+                      "status": "SERVED",
+                      "total_pesewas": 13300,
+                      "discount_pesewas": 0
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sessions/{session_id}/payments": {
+      "post": {
+        "operationId": "sessions_record_payment",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "created",
+            "content": {
+              "application/json": {
+                "example": {
+                  "id": "p1000000-0000-7000-8000-000000000001",
+                  "session_id": "s2000000-0000-4000-8000-000000000007",
+                  "method": "CASH",
+                  "amount_pesewas": 13300,
+                  "tendered_pesewas": 20000,
+                  "change_pesewas": 6700,
+                  "external_reference": null,
+                  "bill_total_pesewas": 13300,
+                  "paid_pesewas": 13300,
+                  "balance_pesewas": 0,
+                  "settled": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/sessions/{session_id}/reopen": {
+      "post": {
+        "operationId": "sessions_reopen",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {
+              "application/json": {
+                "example": {
+                  "id": "s2000000-0000-4000-8000-000000000007"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/payments/{payment_id}/void": {
+      "post": {
+        "operationId": "payments_void",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "payment_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {
+              "application/json": {
+                "example": {
+                  "id": "p1000000-0000-7000-8000-000000000001"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orders/{id}/discount": {
+      "post": {
+        "operationId": "orders_discount",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {
+              "application/json": {
+                "example": {
+                  "id": "o2000000-0000-7000-8000-000000000001",
+                  "discount_pesewas": 1330
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orders/{id}/void": {
+      "post": {
+        "operationId": "orders_void",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "ok",
+            "content": {
+              "application/json": {
+                "example": {
+                  "id": "o2000000-0000-7000-8000-000000000001",
+                  "status": "VOIDED"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   }
 }

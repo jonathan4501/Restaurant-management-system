@@ -57,7 +57,7 @@ export function AuthoriseSheet({ purpose, open, onClose, onAuthorised }: Authori
       <div className="w-full max-w-md rounded-t-2xl border border-[var(--line)] bg-[var(--surface)] p-4 sm:rounded-2xl">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-lg font-semibold">Manager authorisation</h2>
-          <button type="button" onClick={onClose} className="min-h-11 px-3 text-sm text-[var(--ink-3)]">
+          <button type="button" onClick={onClose} className="min-h-14 px-4 text-base text-[var(--ink-3)]">
             Cancel
           </button>
         </div>
@@ -76,7 +76,14 @@ export function AuthoriseSheet({ purpose, open, onClose, onAuthorised }: Authori
             ))}
           </select>
         </label>
-        <PinPad value={pin} onChange={setPin} onSubmit={submit} disabled={busy} error={error} />
+        <PinPad
+          value={pin}
+          onChange={setPin}
+          onSubmit={submit}
+          disabled={busy}
+          error={error}
+          submitLabel="Authorise"
+        />
       </div>
     </div>
   );
