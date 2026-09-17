@@ -48,6 +48,14 @@ export async function resetOutboxDb(): Promise<void> {
   await deleteDB(DB_NAME);
 }
 
+/** Close the connection without wiping data — simulates a tab reload. Tests only. */
+export async function closeOutboxDb(): Promise<void> {
+  if (handle) {
+    (await handle).close();
+    handle = null;
+  }
+}
+
 function isPending(status: OutboxStatus): boolean {
   // `sending` counts as pending: a tab killed mid-flight leaves one behind, and the
   // Idempotency-Key is exactly what makes re-sending it safe.

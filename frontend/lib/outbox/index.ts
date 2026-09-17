@@ -46,6 +46,8 @@ export function isOnline(): boolean {
 let config: OutboxFetchConfig = { baseUrl: "" };
 
 function transport(entry: OutboxEntry): Promise<Response> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 20_000);
   return fetch(`${config.baseUrl}${entry.path}`, {
     method: entry.method,
     headers: {
@@ -56,7 +58,8 @@ function transport(entry: OutboxEntry): Promise<Response> {
     },
     body: entry.body === null || entry.body === undefined ? undefined : JSON.stringify(entry.body),
     cache: "no-store",
-  });
+    signal: ctrl.signal,
+  }).finally(() => clearTimeout(timer));
 }
 
 export const outbox = new Outbox({ transport, isOnline });

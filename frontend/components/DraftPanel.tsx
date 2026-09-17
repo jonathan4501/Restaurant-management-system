@@ -3,6 +3,7 @@
 import { formatPesewas } from "@/lib/money";
 import { lineTotalPesewas, type DraftLine } from "@/lib/domain";
 import { useI18n } from "@/lib/i18n";
+import { useConnectivity } from "@/lib/stores/connectivity";
 
 interface DraftPanelProps {
   tableNumber: string | null;
@@ -24,6 +25,7 @@ export function DraftPanel({
   guestSurface,
 }: DraftPanelProps) {
   const { t } = useI18n();
+  const pendingCount = useConnectivity((s) => s.pendingCount);
 
   return (
     <aside
@@ -77,7 +79,13 @@ export function DraftPanel({
           onClick={onSend}
           className="flex min-h-16 w-full items-center justify-center rounded-lg bg-[var(--accent)] text-lg font-semibold text-[var(--accent-ink)] disabled:opacity-40"
         >
-          {submitPending ? "Sending…" : t("sendToKitchen")}
+          {submitPending
+            ? pendingCount > 0
+              ? `Sending… (queued: ${pendingCount})`
+              : "Sending…"
+            : pendingCount > 0
+              ? `Sending… (queued: ${pendingCount})`
+              : t("sendToKitchen")}
         </button>
       </div>
     </aside>
