@@ -49,6 +49,28 @@ jobs:
           uv run python manage.py spectacular --file openapi.json --validate
           git diff --exit-code -- openapi.json
 
+  # Own job, not a step on backend: bridge/ is a separate uv project (own lockfile, no Django /
+  # Postgres / Redis). Running it in parallel keeps the backend job lean and fails the Pi daemon
+  # in isolation when it regresses — the reason this coverage exists.
+  bridge:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: bridge
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: bridge/uv.lock
+      - run: uv sync --frozen
+      - name: Lint
+        run: uv run ruff check . && uv run black --check .
+      - name: Type-check
+        run: uv run mypy renzy_bridge
+      - name: Tests
+        run: uv run pytest
+
   frontend:
     runs-on: ubuntu-latest
     defaults:

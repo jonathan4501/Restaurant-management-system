@@ -4,9 +4,12 @@
 COMPOSE   = docker compose -f infra/compose.dev.yml
 UV        = uv
 BACKEND   = cd backend &&
+BRIDGE    = cd bridge &&
 FRONTEND  = cd frontend &&
 
 .PHONY: up down migrate seed test check lint fmt typecheck openapi types dev
+.PHONY: lint-backend lint-bridge typecheck-backend typecheck-bridge test-backend test-bridge
+.PHONY: fmt-backend fmt-bridge
 
 up:                ## start Postgres + Redis (dev)
 	$(COMPOSE) up -d db redis
@@ -23,17 +26,37 @@ seed:
 dev:               ## API with reload on :8000
 	$(BACKEND) $(UV) run uvicorn config.asgi:application --reload --port 8000
 
-test:
-	$(BACKEND) $(UV) run pytest
-
-lint:
+lint-backend:
 	$(BACKEND) $(UV) run ruff check . && $(UV) run black --check .
 
-fmt:
+lint-bridge:
+	$(BRIDGE) $(UV) run ruff check . && $(UV) run black --check .
+
+lint: lint-backend lint-bridge
+
+fmt-backend:
 	$(BACKEND) $(UV) run ruff check --fix . && $(UV) run black .
 
-typecheck:
+fmt-bridge:
+	$(BRIDGE) $(UV) run ruff check --fix . && $(UV) run black .
+
+fmt: fmt-backend fmt-bridge
+
+typecheck-backend:
 	$(BACKEND) $(UV) run mypy apps config
+
+typecheck-bridge:
+	$(BRIDGE) $(UV) run mypy renzy_bridge
+
+typecheck: typecheck-backend typecheck-bridge
+
+test-backend:
+	$(BACKEND) $(UV) run pytest
+
+test-bridge:
+	$(BRIDGE) $(UV) run pytest
+
+test: test-backend test-bridge
 
 openapi:           ## regenerate backend/openapi.json and fail if it changed
 	$(BACKEND) $(UV) run python manage.py spectacular --file openapi.json --validate
@@ -42,4 +65,4 @@ openapi:           ## regenerate backend/openapi.json and fail if it changed
 types:             ## regenerate frontend types from openapi.json
 	$(FRONTEND) npx openapi-typescript ../backend/openapi.json -o lib/api/schema.d.ts
 
-check: lint typecheck test openapi   ## everything CI runs
+check: lint typecheck test openapi   ## everything CI runs (backend + bridge)
